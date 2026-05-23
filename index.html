@@ -40,17 +40,19 @@
       </div>
       <div class="modal-body">
         <p class="help-desc">
-          <strong>BUILDINGSYNTH v2.5</strong> es un secuenciador visual y sintetizador chiptune generativo basado en un skyline nocturno de arte ASCII.
+          <strong>CITYSYNTH</strong> es un secuenciador visual y sintetizador chiptune generativo basado en un skyline nocturno de arte ASCII.
         </p>
         <div class="instructions-list">
+          <p><strong>- INICIO RÁPIDO:</strong> Elige un PRESET TEMÁTICO, activa un barrido (→, ←, ↓, ↑) y sube algunas ventanas con clic.</p>
           <p><strong>- INTERACCIÓN:</strong> Haz clic en cualquier ventana para prender/apagar la nota (siempre activo).</p>
           <p><strong>- SECUENCIADOR:</strong> Abre [ CONFIG ] y activa los barridos (→, ←, ↓, ↑). Cada uno tiene su propio BPM. Al cruzarse con ventanas encendidas, se reproducirán.</p>
           <p><strong>- CANALES:</strong> Configura individualmente el volumen, timbre, escala armónica y nota raíz de cada uno de los 8 edificios.</p>
-          <p><strong>- CLIMAS:</strong> La lluvia genera gotas y micro-clicks; la nieve congela y reduce la velocidad/duración; la tormenta provoca destellos, truenos y ráfagas de viento; las abejas revolotean modulando el tono con vibrato LFO.</p>
+          <p><strong>- PRESETS TEMÁTICOS:</strong> Cambian en bloque tema visual, clima, intensidad, barridos y parámetros musicales.</p>
+          <p><strong>- CLIMAS:</strong> La lluvia genera gotas y micro-clicks; la nieve congela y reduce la velocidad/duración; la tormenta provoca destellos, truenos y ráfagas de viento; las abejas revolotean modulando el tono con vibrato LFO. Ajusta también INTENSIDAD CLIMA.</p>
         </div>
         <div class="git-repo-box">
           <span>PROYECTO EN GITHUB:</span>
-          <a href="https://github.com/vlasvlasvlas/buildingsynth" target="_blank" class="git-link">github.com/vlasvlasvlas/buildingsynth</a>
+          <a href="https://github.com/vlasvlasvlas/citysynth" target="_blank" class="git-link">github.com/vlasvlasvlas/citysynth</a>
         </div>
       </div>
     </div>
@@ -254,6 +256,10 @@
           <h2 class="console-title">[ TERMINAL ]</h2>
           <div class="sidebar-controls">
             <div class="param-row">
+              <span>PRESET:</span>
+              <select id="presetSelect"></select>
+            </div>
+            <div class="param-row" style="margin-top: 8px;">
               <span>TEMA:</span>
               <select id="themeSelect">
                 <option value="dos-blue" selected>DOS Azul (Turbo C)</option>
@@ -277,6 +283,11 @@
               <span>VOL CLIMA:</span>
               <input id="weatherVolume" type="range" min="0" max="100" value="50" />
               <span id="weatherVolumeVal">50%</span>
+            </div>
+            <div class="param-row" style="margin-top: 8px;">
+              <span>INT CLIMA:</span>
+              <input id="weatherIntensity" type="range" min="0" max="100" value="100" />
+              <span id="weatherIntensityVal">100%</span>
             </div>
           </div>
         </div>

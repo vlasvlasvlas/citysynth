@@ -1,8 +1,11 @@
 initial_state:
   masterVolume: 0.5
-  weatherVolume: 0.5
+  weatherVolume: 0.7
+  weatherIntensity: 0.8
   lifeMode: "on_drone"
   weather: "clear"
+  theme: "dark-city"
+  preset: "blade_runner_night"
   autoRandomActive: false
   autoRandomInterval: 5
 
@@ -123,3 +126,163 @@ sweeps:
     bpm: 120
     delayTime: 0
     delayFeedback: 0
+
+thematic_presets:
+  - id: "blade_runner_night"
+    label: "Blade Runner Night"
+    theme: "dark-city"
+    weather: "rain"
+    weatherVolume: 0.9
+    weatherIntensity: 0.95
+    lifeMode: "on_drone"
+    autoRandomActive: true
+    autoRandomInterval: 8
+    buildings:
+      - id: 0
+        start_x: 2
+        width: 7
+        bh: 13
+        floors: 6
+        cols: 3
+        type: "zen"
+      - id: 1
+        start_x: 11
+        width: 8
+        bh: 19
+        floors: 8
+        cols: 3
+        type: "bass"
+      - id: 2
+        start_x: 22
+        width: 8
+        bh: 15
+        floors: 7
+        cols: 3
+        type: "arp"
+      - id: 3
+        start_x: 33
+        width: 12
+        bh: 19
+        floors: 8
+        cols: 4
+        type: "pad"
+      - id: 4
+        start_x: 47
+        width: 7
+        bh: 14
+        floors: 6
+        cols: 3
+        type: "noise"
+      - id: 5
+        start_x: 55
+        width: 7
+        bh: 12
+        floors: 5
+        cols: 3
+        type: "aeolian"
+      - id: 6
+        start_x: 63
+        width: 7
+        bh: 18
+        floors: 8
+        cols: 3
+        type: "whole"
+      - id: 7
+        start_x: 71
+        width: 7
+        bh: 14
+        floors: 6
+        cols: 3
+        type: "blues"
+    channels:
+      - volume: 0.86
+        timbre: "triangle"
+        scale: "minor"
+        rootFreq: 130.81
+      - volume: 0.9
+        timbre: "sawtooth"
+        scale: "minor"
+        rootFreq: 65.41
+      - volume: 0.78
+        timbre: "square"
+        scale: "dorian"
+        rootFreq: 146.83
+      - volume: 0.92
+        timbre: "sawtooth"
+        scale: "lydian"
+        rootFreq: 261.63
+      - volume: 0.66
+        timbre: "square"
+        scale: "phrygian"
+        rootFreq: 329.63
+      - volume: 0.74
+        timbre: "triangle"
+        scale: "minor"
+        rootFreq: 220.00
+      - volume: 0.8
+        timbre: "sine"
+        scale: "whole_tone"
+        rootFreq: 261.63
+      - volume: 0.84
+        timbre: "square"
+        scale: "blues"
+        rootFreq: 392.00
+    sweeps:
+      L_TO_R:
+        active: true
+        pos: 0
+        bpm: 88
+        delayTime: 420
+        delayFeedback: 38
+      R_TO_L:
+        active: false
+        pos: 79
+        bpm: 92
+        delayTime: 260
+        delayFeedback: 25
+      T_TO_B:
+        active: true
+        pos: 0
+        bpm: 64
+        delayTime: 520
+        delayFeedback: 44
+      B_TO_T:
+        active: false
+        pos: 23
+        bpm: 70
+        delayTime: 340
+        delayFeedback: 33
+
+  - id: "clear_minimal"
+    label: "Clear Minimal"
+    theme: "dos-blue"
+    weather: "clear"
+    weatherVolume: 0.4
+    weatherIntensity: 0.4
+    lifeMode: "on_silent"
+    autoRandomActive: false
+    autoRandomInterval: 6
+    channels:
+      - volume: 0.72
+        timbre: "sine"
+        scale: "pentatonic_major"
+        rootFreq: 130.81
+      - volume: 0.68
+        timbre: "triangle"
+        scale: "dorian"
+        rootFreq: 73.42
+    sweeps:
+      L_TO_R:
+        active: true
+        bpm: 110
+        delayTime: 180
+        delayFeedback: 20
+      R_TO_L:
+        active: false
+      T_TO_B:
+        active: true
+        bpm: 90
+        delayTime: 220
+        delayFeedback: 24
+      B_TO_T:
+        active: false

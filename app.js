@@ -33,8 +33,13 @@ const state = {
   audioEnabled: true,
   masterVolume: 0.5,
   weatherVolume: 0.5, // Volumen específico del clima
+  weatherIntensity: 1.0, // Intensidad visual/física del clima
   lifeMode: "on_drone", // off, on_drone, on_silent
   weather: "clear", // clear, rain, snow, storm, bees
+  currentTheme: "dos-blue",
+  currentPreset: "default_city",
+  thematicPresets: [],
+  mobilePerformanceMode: false,
   
   // Llenar Azar Automático
   autoRandomActive: false,
@@ -85,10 +90,13 @@ const refs = {
   volumeSlider: document.getElementById("volumeSlider"),
   volumeVal: document.getElementById("volumeVal"),
   themeSelect: document.getElementById("themeSelect"),
+  presetSelect: document.getElementById("presetSelect"),
   audioToggle: document.getElementById("audioToggle"),
   weatherSelect: document.getElementById("weatherSelect"),
   weatherVolume: document.getElementById("weatherVolume"),
   weatherVolumeVal: document.getElementById("weatherVolumeVal"),
+  weatherIntensity: document.getElementById("weatherIntensity"),
+  weatherIntensityVal: document.getElementById("weatherIntensityVal"),
   
   btnClear: document.getElementById("btnClear"),
   btnRandom: document.getElementById("btnRandom"),
@@ -137,6 +145,20 @@ function isLifeEnabled() {
 
 function isLifeDroneEnabled() {
   return state.lifeMode === "on_drone";
+}
+
+function cloneDeep(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function getClimateDensityMultiplier() {
+  return clamp(state.weatherIntensity, 0, 1);
+}
+
+function setupPerformanceMode() {
+  const isSmallScreen = window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+  const lowMemory = typeof navigator.deviceMemory === "number" && navigator.deviceMemory <= 4;
+  state.mobilePerformanceMode = Boolean(isSmallScreen || lowMemory);
 }
 
 // Motor de audio de 8 bits seco (Chiptune puro) con soporte LFO, Delays y Climas
@@ -257,7 +279,7 @@ const audio = {
     
     // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta
     const stormMultiplier = state.weather === "storm" ? 2.0 : 1.0;
-    const dripVol = state.masterVolume * state.weatherVolume * 0.28 * stormMultiplier;
+    const dripVol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
     gainNode.gain.setValueAtTime(dripVol, now);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
     
@@ -280,7 +302,7 @@ const audio = {
     osc.frequency.exponentialRampToValueAtTime(20, now + 0.85);
     
     // Incorpora el volumen del clima
-    const thunderVol = state.masterVolume * state.weatherVolume * 0.6;
+    const thunderVol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.6;
     gainNode.gain.setValueAtTime(thunderVol * 0.16, now);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
     
@@ -309,7 +331,7 @@ const audio = {
     lfoGain.connect(osc.frequency);
     
     // Ajuste de volumen con volumen del clima
-    const vol = state.masterVolume * state.weatherVolume * 0.04;
+    const vol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.04;
     gainNode.gain.setValueAtTime(vol, now);
     
     osc.connect(gainNode);
@@ -338,7 +360,7 @@ const audio = {
   updateBeeDroneVolume() {
     if (this.beeDroneGain) {
       const now = this.ctx.currentTime;
-      const vol = state.masterVolume * state.weatherVolume * 0.04;
+      const vol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.04;
       this.beeDroneGain.gain.setValueAtTime(vol, now);
     }
   },
@@ -431,7 +453,10 @@ function createStars() {
 // Configura las gotas de lluvia
 function createRain() {
   state.rainDrops = [];
-  for (let i = 0; i < 35; i++) {
+  const density = getClimateDensityMultiplier();
+  const baseCount = state.mobilePerformanceMode ? 18 : 35;
+  const count = Math.max(4, Math.floor(baseCount * density));
+  for (let i = 0; i < count; i++) {
     state.rainDrops.push({
       x: Math.random() * 80,
       y: Math.random() * 20,
@@ -443,7 +468,10 @@ function createRain() {
 // Configura las gotas de nieve
 function createSnow() {
   state.snowDrops = [];
-  for (let i = 0; i < 35; i++) {
+  const density = getClimateDensityMultiplier();
+  const baseCount = state.mobilePerformanceMode ? 18 : 35;
+  const count = Math.max(4, Math.floor(baseCount * density));
+  for (let i = 0; i < count; i++) {
     state.snowDrops.push({
       x: Math.random() * 80,
       y: Math.random() * 20,
@@ -456,7 +484,10 @@ function createSnow() {
 // Configura las abejas
 function createBees() {
   state.bees = [];
-  for (let i = 0; i < 6; i++) {
+  const density = getClimateDensityMultiplier();
+  const baseCount = state.mobilePerformanceMode ? 4 : 6;
+  const count = Math.max(1, Math.floor(baseCount * density));
+  for (let i = 0; i < count; i++) {
     state.bees.push({
       x: 10 + Math.floor(Math.random() * 60),
       y: 2 + Math.floor(Math.random() * 12)
@@ -467,12 +498,13 @@ function createBees() {
 // Mueve las gotas de lluvia
 function stepRain() {
   state.rainDrops.forEach(drop => {
-    const speedMultiplier = state.weather === "storm" ? 1.5 : 1.0;
+    const intensityMul = 0.35 + getClimateDensityMultiplier() * 1.6;
+    const speedMultiplier = (state.weather === "storm" ? 1.5 : 1.0) * intensityMul;
     drop.y += drop.speed * speedMultiplier;
     if (drop.y > 20) {
       drop.y = -Math.random() * 5;
       drop.x = Math.random() * 80;
-      if (Math.random() < 0.1) {
+      if (Math.random() < 0.1 * getClimateDensityMultiplier()) {
         audio.playRainDrip();
       }
     }
@@ -482,7 +514,8 @@ function stepRain() {
 // Mueve las gotas de nieve (oscilan horizontalmente)
 function stepSnow() {
   state.snowDrops.forEach(drop => {
-    drop.y += drop.speed;
+    const intensityMul = 0.35 + getClimateDensityMultiplier() * 1.4;
+    drop.y += drop.speed * intensityMul;
     drop.x += Math.sin(state.frameCount * 0.15 + drop.driftOffset) * 0.1;
     if (drop.y > 20) {
       drop.y = -Math.random() * 5;
@@ -777,13 +810,14 @@ function drawCanvas() {
   const ground_y = 20;
   
   state.frameCount++;
+  if (state.mobilePerformanceMode && state.frameCount % 2 !== 0) return;
   
   // 1. Inicializar buffers planos
   const buf = Array(height).fill(null).map(() => Array(width).fill(" "));
   const colors = Array(height).fill(null).map(() => Array(width).fill("ansi-grey"));
   
   // 2. Dibujar estrellas parpadeantes en el cielo (solo si no hay tormenta densa)
-  if (state.weather !== "storm" || Math.random() < 0.6) {
+  if (state.weather !== "storm" || Math.random() < 0.6 * getClimateDensityMultiplier()) {
     state.stars.forEach(star => {
       if (star.y < ground_y) {
         const chars = [".", "*", "+"];
@@ -795,7 +829,7 @@ function drawCanvas() {
   }
   
   // 3. Dibujar Luna ASCII (solo si no hay tormenta/lluvia densa)
-  if (state.weather !== "storm" && state.weather !== "rain") {
+  if (state.weather !== "storm" && state.weather !== "rain" && getClimateDensityMultiplier() < 0.9) {
     const moon_x = 56;
     const moon_y = 2;
     const moonLines = [
@@ -965,8 +999,10 @@ function drawCanvas() {
       const rx = Math.floor(drop.x);
       const ry = Math.floor(drop.y);
       if (ry >= 0 && ry < ground_y && rx >= 0 && rx < width) {
-        buf[ry][rx] = "│";
-        colors[ry][rx] = "ansi-blue";
+        if (Math.random() < getClimateDensityMultiplier()) {
+          buf[ry][rx] = "│";
+          colors[ry][rx] = "ansi-blue";
+        }
       }
     });
   } else if (state.weather === "snow") {
@@ -987,6 +1023,26 @@ function drawCanvas() {
         colors[ry][rx] = "ansi-yellow";
       }
     });
+  }
+
+  // 9b. Estados vacíos / hints rápidos
+  const activeSweeps = Object.values(state.sweeps).some(s => s.active);
+  const activeWindows = state.buildings.some(b => b.windows.some(row => row.some(w => w.on)));
+  let hint = "";
+  if (!activeSweeps) {
+    hint = "[SIN BARRIDOS ACTIVOS]";
+  } else if (!activeWindows) {
+    hint = "[SIN VENTANAS ACTIVAS]";
+  } else if ((state.weather === "rain" || state.weather === "snow" || state.weather === "storm" || state.weather === "bees") && state.weatherIntensity <= 0.02) {
+    hint = "[INTENSIDAD CLIMA EN 0%]";
+  }
+  if (hint) {
+    const startX = Math.max(0, Math.floor((width - hint.length) / 2));
+    const y = 0;
+    for (let i = 0; i < hint.length && startX + i < width; i++) {
+      buf[y][startX + i] = hint[i];
+      colors[y][startX + i] = "ansi-yellow";
+    }
   }
 
   // 10. Computar la ubicación y colisión visual de los playheads
@@ -1056,6 +1112,105 @@ function syncActiveChannelToUI() {
   refs.channelTimbre.value = ch.timbre;
   refs.channelScale.value = ch.scale;
   refs.channelRoot.value = String(ch.rootFreq);
+}
+
+function rebuildWeatherParticles() {
+  createRain();
+  createSnow();
+  createBees();
+}
+
+function applyThemePreset(themeName) {
+  if (themeName) {
+    setTheme(themeName);
+    state.currentTheme = themeName;
+    if (refs.themeSelect) refs.themeSelect.value = themeName;
+  }
+}
+
+function normalizePreset(rawPreset, fallbackId) {
+  const preset = rawPreset || {};
+  const id = preset.id || fallbackId;
+  return {
+    id,
+    label: preset.label || id,
+    theme: preset.theme || "dos-blue",
+    weather: preset.weather || "clear",
+    weatherVolume: preset.weatherVolume,
+    weatherIntensity: preset.weatherIntensity,
+    lifeMode: preset.lifeMode,
+    autoRandomActive: preset.autoRandomActive,
+    autoRandomInterval: preset.autoRandomInterval,
+    buildings: Array.isArray(preset.buildings) ? cloneDeep(preset.buildings) : null,
+    channels: Array.isArray(preset.channels) ? cloneDeep(preset.channels) : null,
+    sweeps: preset.sweeps ? cloneDeep(preset.sweeps) : null
+  };
+}
+
+function populatePresetSelect() {
+  if (!refs.presetSelect) return;
+  refs.presetSelect.innerHTML = "";
+  state.thematicPresets.forEach(p => {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.label;
+    refs.presetSelect.appendChild(opt);
+  });
+  refs.presetSelect.value = state.currentPreset;
+}
+
+function applyPresetById(presetId, syncUI = true) {
+  const preset = state.thematicPresets.find(p => p.id === presetId);
+  if (!preset) return;
+  state.currentPreset = preset.id;
+
+  if (preset.lifeMode) state.lifeMode = preset.lifeMode;
+  if (preset.weather) state.weather = preset.weather;
+  if (typeof preset.weatherVolume === "number") state.weatherVolume = clamp(preset.weatherVolume, 0, 1);
+  if (typeof preset.weatherIntensity === "number") state.weatherIntensity = clamp(preset.weatherIntensity, 0, 1);
+  if (typeof preset.autoRandomActive === "boolean") state.autoRandomActive = preset.autoRandomActive;
+  if (typeof preset.autoRandomInterval === "number") state.autoRandomInterval = clamp(preset.autoRandomInterval, 1, 15);
+
+  if (preset.buildings) {
+    BUILDINGS_CONFIG.length = 0;
+    preset.buildings.forEach(b => BUILDINGS_CONFIG.push(cloneDeep(b)));
+  }
+
+  if (preset.channels) {
+    preset.channels.forEach((ch, idx) => {
+      if (!state.channels[idx]) return;
+      if (typeof ch.volume === "number") state.channels[idx].volume = ch.volume;
+      if (typeof ch.timbre === "string") state.channels[idx].timbre = ch.timbre;
+      if (typeof ch.scale === "string") state.channels[idx].scale = ch.scale;
+      if (typeof ch.rootFreq === "number") state.channels[idx].rootFreq = ch.rootFreq;
+    });
+    initAllChannelNotes();
+  }
+
+  if (preset.sweeps) {
+    Object.keys(state.sweeps).forEach(sweepId => {
+      const src = preset.sweeps[sweepId];
+      if (!src) return;
+      if (typeof src.active === "boolean") state.sweeps[sweepId].active = src.active;
+      if (typeof src.pos === "number") state.sweeps[sweepId].pos = src.pos;
+      if (typeof src.bpm === "number") state.sweeps[sweepId].bpm = src.bpm;
+      if (typeof src.delayTime === "number") state.sweeps[sweepId].delayTime = src.delayTime;
+      if (typeof src.delayFeedback === "number") state.sweeps[sweepId].delayFeedback = src.delayFeedback;
+      state.sweeps[sweepId].elapsed = 0;
+    });
+  }
+
+  applyThemePreset(preset.theme);
+  initSkyline();
+  rebuildWeatherParticles();
+
+  if (state.weather === "bees") audio.startBeeDrone();
+  else audio.stopBeeDrone();
+  if (isLifeDroneEnabled()) audio.startCarDrone();
+  audio.updateBeeDroneVolume();
+  audio.updateCarDroneVolume();
+
+  if (syncUI) syncDOMToState();
 }
 
 // Enlace de los Controles de la Consola
@@ -1218,7 +1373,12 @@ function bindConsoleUI() {
 
   // Enlace del Selector de Tema
   refs.themeSelect.addEventListener("change", (e) => {
-    setTheme(e.target.value);
+    applyThemePreset(e.target.value);
+  });
+
+  // Enlace de presets temáticos
+  refs.presetSelect.addEventListener("change", (e) => {
+    applyPresetById(e.target.value, true);
   });
 
   // Enlace del Selector de Clima
@@ -1234,6 +1394,7 @@ function bindConsoleUI() {
     
     if (state.weather === "snow" && state.snowDrops.length === 0) createSnow();
     if (state.weather === "bees" && state.bees.length === 0) createBees();
+    rebuildWeatherParticles();
   });
 
   // Slider de volumen del clima
@@ -1241,6 +1402,13 @@ function bindConsoleUI() {
     state.weatherVolume = Number(e.target.value) / 100;
     refs.weatherVolumeVal.textContent = `${e.target.value}%`;
     audio.updateBeeDroneVolume();
+  });
+
+  // Slider de intensidad del clima (impacta densidad y velocidad visual)
+  refs.weatherIntensity.addEventListener("input", (e) => {
+    state.weatherIntensity = Number(e.target.value) / 100;
+    refs.weatherIntensityVal.textContent = `${e.target.value}%`;
+    rebuildWeatherParticles();
   });
 
   // Enlace de Activación de Flechas de Secuenciador
@@ -1317,6 +1485,7 @@ document.addEventListener("click", () => {
 // Bucle secundario de simulación física y eventos (12 FPS = 83ms)
 function startSecondaryLoops() {
   state.lastTime = performance.now();
+  const tickMs = state.mobilePerformanceMode ? 120 : 83;
   
   setInterval(() => {
     const now = performance.now();
@@ -1329,7 +1498,7 @@ function startSecondaryLoops() {
       stepRain();
       
       // Relámpagos aleatorios en tormenta
-      if (state.weather === "storm" && Math.random() < 0.008) {
+      if (state.weather === "storm" && Math.random() < 0.008 * getClimateDensityMultiplier()) {
         document.body.classList.add("lightning-flash");
         audio.playThunder();
         setTimeout(() => {
@@ -1344,7 +1513,7 @@ function startSecondaryLoops() {
     
     // Procesar Azar Automático de ventanas
     if (state.autoRandomActive) {
-      state.autoRandomElapsed += 83;
+      state.autoRandomElapsed += tickMs;
       if (state.autoRandomElapsed >= state.autoRandomInterval * 1000) {
         state.autoRandomElapsed = 0;
         state.buildings.forEach(b => {
@@ -1358,7 +1527,7 @@ function startSecondaryLoops() {
     stepVehicles();
     stepElevator();
     drawCanvas();
-  }, 83);
+  }, tickMs);
 
   // Simulación autónoma vecinal lenta (cada 1.5 segundos)
   setInterval(() => {
@@ -1378,6 +1547,7 @@ function setTheme(themeName) {
   
   if (themeName) {
     document.body.classList.add(`theme-${themeName}`);
+    state.currentTheme = themeName;
   }
 }
 
@@ -1394,12 +1564,15 @@ async function loadConfig() {
       if (config.initial_state) {
         state.masterVolume = config.initial_state.masterVolume !== undefined ? config.initial_state.masterVolume : state.masterVolume;
         state.weatherVolume = config.initial_state.weatherVolume !== undefined ? config.initial_state.weatherVolume : state.weatherVolume;
+        state.weatherIntensity = config.initial_state.weatherIntensity !== undefined ? clamp(config.initial_state.weatherIntensity, 0, 1) : state.weatherIntensity;
         if (config.initial_state.lifeMode !== undefined) {
           state.lifeMode = config.initial_state.lifeMode;
         } else if (config.initial_state.lifeActive !== undefined) {
           state.lifeMode = config.initial_state.lifeActive ? "on_drone" : "off";
         }
         state.weather = config.initial_state.weather !== undefined ? config.initial_state.weather : state.weather;
+        state.currentTheme = config.initial_state.theme !== undefined ? config.initial_state.theme : state.currentTheme;
+        state.currentPreset = config.initial_state.preset !== undefined ? config.initial_state.preset : state.currentPreset;
         state.autoRandomActive = config.initial_state.autoRandomActive !== undefined ? config.initial_state.autoRandomActive : state.autoRandomActive;
         state.autoRandomInterval = config.initial_state.autoRandomInterval !== undefined ? config.initial_state.autoRandomInterval : state.autoRandomInterval;
       }
@@ -1435,6 +1608,29 @@ async function loadConfig() {
           }
         });
       }
+
+      // 5. Presets temáticos configurables en YAML
+      const presetsFromYaml = Array.isArray(config.thematic_presets) ? config.thematic_presets : [];
+      const defaultPreset = normalizePreset({
+        id: "default_city",
+        label: "Ciudad Base",
+        theme: state.currentTheme,
+        weather: state.weather,
+        weatherVolume: state.weatherVolume,
+        weatherIntensity: state.weatherIntensity,
+        lifeMode: state.lifeMode,
+        autoRandomActive: state.autoRandomActive,
+        autoRandomInterval: state.autoRandomInterval,
+        buildings: BUILDINGS_CONFIG,
+        channels: state.channels.map(ch => ({
+          volume: ch.volume,
+          timbre: ch.timbre,
+          scale: ch.scale,
+          rootFreq: ch.rootFreq
+        })),
+        sweeps: state.sweeps
+      }, "default_city");
+      state.thematicPresets = [defaultPreset, ...presetsFromYaml.map((p, idx) => normalizePreset(p, `preset_${idx + 1}`))];
     }
   } catch (error) {
     console.error("Error al cargar config.yaml:", error);
@@ -1453,9 +1649,16 @@ function syncDOMToState() {
   if (refs.weatherSelect) {
     refs.weatherSelect.value = state.weather;
   }
+  if (refs.presetSelect) {
+    refs.presetSelect.value = state.currentPreset;
+  }
   if (refs.weatherVolume) {
     refs.weatherVolume.value = Math.round(state.weatherVolume * 100);
     refs.weatherVolumeVal.textContent = `${Math.round(state.weatherVolume * 100)}%`;
+  }
+  if (refs.weatherIntensity) {
+    refs.weatherIntensity.value = Math.round(state.weatherIntensity * 100);
+    refs.weatherIntensityVal.textContent = `${Math.round(state.weatherIntensity * 100)}%`;
   }
   if (refs.autoRandomToggle) {
     refs.autoRandomToggle.checked = state.autoRandomActive;
@@ -1512,24 +1715,27 @@ function syncDOMToState() {
 
 // Inicialización de la aplicación
 async function initApp() {
+  setupPerformanceMode();
+
   // Cargar configuración de YAML antes de inicializar notas y skyline
   await loadConfig();
 
   createStars();
-  createRain();
-  createSnow();
-  createBees();
+  rebuildWeatherParticles();
   
   initAllChannelNotes();
   initSkyline();
   bindConsoleUI();
+  populatePresetSelect();
+  applyThemePreset(state.currentTheme);
   
   // Sincronizar UI con el estado configurado en el YAML
   syncDOMToState();
-  
-  // Configurar tema inicial DOS Blue para máxima visibilidad inmediata
-  setTheme("dos-blue");
-  if (refs.themeSelect) refs.themeSelect.value = "dos-blue";
+
+  // Aplicar preset inicial si existe (permite escenas temáticas YAML)
+  if (state.currentPreset) {
+    applyPresetById(state.currentPreset, true);
+  }
   
   // Si el modo vida está activo y el audio está habilitado, iniciar el drone de autos
   if (isLifeDroneEnabled() && state.audioEnabled) {
