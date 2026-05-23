@@ -255,8 +255,9 @@ const audio = {
     // Barrido de frecuencia descendente (pitch sweep) para emular la gota chiptune
     osc.frequency.exponentialRampToValueAtTime(freq * 0.4, now + 0.03);
     
-    // Volumen del clima corregido (quitando la multiplicación redundante por la duración de 0.015)
-    const dripVol = state.masterVolume * state.weatherVolume * 0.12;
+    // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta
+    const stormMultiplier = state.weather === "storm" ? 2.0 : 1.0;
+    const dripVol = state.masterVolume * state.weatherVolume * 0.28 * stormMultiplier;
     gainNode.gain.setValueAtTime(dripVol, now);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
     
