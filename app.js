@@ -33,7 +33,8 @@ const state = {
   audioEnabled: true,
   masterVolume: 0.5,
   weatherVolume: 0.5, // Volumen específico del clima
-  weatherIntensity: 1.0, // Intensidad visual/física del clima
+  weatherIntensity: 0.5, // Intensidad visual/física del clima
+  weatherReverb: 0.0, // Reverb dedicada al clima (arranca apagada)
   lifeMode: "on_drone", // off, on_drone, on_silent
   weather: "clear", // clear, rain, snow, storm, bees
   currentTheme: "dos-blue",
@@ -43,8 +44,9 @@ const state = {
   
   // Llenar Azar Automático
   autoRandomActive: false,
-  autoRandomInterval: 5, // segundos
+  autoRandomInterval: 2, // segundos
   autoRandomElapsed: 0, // ms acumulados
+  carDroneFreq: 45, // frecuencia base del drone de vida
   
   buildings: [],
   stars: [],
@@ -82,6 +84,7 @@ const state = {
   activeChannelIdx: 0, // Canal que se está editando en la UI actualmente
   
   frameCount: 0,
+  audioUnlocked: false,
 };
 
 // Referencias del DOM
@@ -97,10 +100,15 @@ const refs = {
   weatherVolumeVal: document.getElementById("weatherVolumeVal"),
   weatherIntensity: document.getElementById("weatherIntensity"),
   weatherIntensityVal: document.getElementById("weatherIntensityVal"),
+  weatherReverb: document.getElementById("weatherReverb"),
+  weatherReverbVal: document.getElementById("weatherReverbVal"),
   
   btnClear: document.getElementById("btnClear"),
   btnRandom: document.getElementById("btnRandom"),
   btnLifeToggle: document.getElementById("btnLifeToggle"),
+  lifeDroneControl: document.getElementById("lifeDroneControl"),
+  lifeDroneFreq: document.getElementById("lifeDroneFreq"),
+  lifeDroneFreqVal: document.getElementById("lifeDroneFreqVal"),
   
   autoRandomToggle: document.getElementById("autoRandomToggle"),
   autoRandomInterval: document.getElementById("autoRandomInterval"),
@@ -122,6 +130,8 @@ const refs = {
   modalBackdrop: document.getElementById("modalBackdrop"),
   configSidebar: document.getElementById("configSidebar"),
   helpModal: document.getElementById("helpModal"),
+  startOverlay: document.getElementById("startOverlay"),
+  btnStartAudio: document.getElementById("btnStartAudio"),
 };
 
 // Mapeo de colores ANSI según el tipo de edificio
@@ -152,7 +162,13 @@ function cloneDeep(obj) {
 }
 
 function getClimateDensityMultiplier() {
-  return clamp(state.weatherIntensity, 0, 1);
+  return clamp(state.weatherIntensity, 0, 1) * 3;
+}
+
+function getClimateVolumeMultiplier(weatherType = state.weather) {
+  const base = clamp(state.weatherVolume, 0, 1);
+  if (weatherType === "bees") return base;
+  return base * 2;
 }
 
 function setupPerformanceMode() {
@@ -178,6 +194,13 @@ const audio = {
   carDrone: null,
   carDroneGain: null,
   carDroneFilter: null,
+  climateInput: null,
+  climateDryGain: null,
+  climateSendGain: null,
+  climateDelay: null,
+  climateFeedback: null,
+  climateWetFilter: null,
+  climateWetGain: null,
   
   init() {
     if (this.ctx) return;
@@ -200,10 +223,60 @@ const audio = {
       
       this.sweeps[sweepId] = { delay, feedback, wetGain };
     });
+
+    // Bus dedicado de clima con reverb independiente
+    this.climateInput = this.ctx.createGain();
+    this.climateDryGain = this.ctx.createGain();
+    this.climateSendGain = this.ctx.createGain();
+    this.climateDelay = this.ctx.createDelay(1.2);
+    this.climateFeedback = this.ctx.createGain();
+    this.climateWetFilter = this.ctx.createBiquadFilter();
+    this.climateWetGain = this.ctx.createGain();
+
+    this.climateInput.connect(this.climateDryGain);
+    this.climateDryGain.connect(this.ctx.destination);
+
+    this.climateInput.connect(this.climateSendGain);
+    this.climateSendGain.connect(this.climateDelay);
+    this.climateDelay.connect(this.climateFeedback);
+    this.climateFeedback.connect(this.climateDelay);
+    this.climateDelay.connect(this.climateWetFilter);
+    this.climateWetFilter.connect(this.climateWetGain);
+    this.climateWetGain.connect(this.ctx.destination);
+
+    this.updateClimateReverb();
+  },
+
+  routeClimateNode(node) {
+    if (this.climateInput) {
+      node.connect(this.climateInput);
+    } else {
+      node.connect(this.ctx.destination);
+    }
+  },
+
+  updateClimateReverb() {
+    if (!this.ctx || !this.climateDryGain || !this.climateSendGain || !this.climateDelay || !this.climateFeedback || !this.climateWetFilter || !this.climateWetGain) return;
+    const now = this.ctx.currentTime;
+    const mix = clamp(state.weatherReverb, 0, 1);
+    const dry = 1 - (mix * 0.62);
+    const send = mix * 0.85;
+    const delayTime = 0.065 + (0.14 * mix);
+    const feedback = 0.12 + (0.30 * mix);
+    const wet = mix * 0.72;
+    const wetFilterCutoff = 3400 - (mix * 1700);
+    this.climateWetFilter.type = "lowpass";
+
+    this.climateDryGain.gain.setValueAtTime(dry, now);
+    this.climateSendGain.gain.setValueAtTime(send, now);
+    this.climateDelay.delayTime.setValueAtTime(delayTime, now);
+    this.climateFeedback.gain.setValueAtTime(feedback, now);
+    this.climateWetFilter.frequency.setValueAtTime(wetFilterCutoff, now);
+    this.climateWetGain.gain.setValueAtTime(wet, now);
   },
   
   playTone(freq, timbre = "square", chVol = 0.8, duration = 0.12, isBeeNear = false, sweepId = null) {
-    if (!state.audioEnabled) return;
+    if (!state.audioEnabled || !state.audioUnlocked) return;
     this.init();
     
     if (this.ctx.state === "suspended") {
@@ -266,7 +339,7 @@ const audio = {
 
   // Generación de blip para salpicadura de gota de lluvia
   playRainDrip() {
-    if (!state.audioEnabled) return;
+    if (!state.audioEnabled || !state.audioUnlocked) return;
     this.init();
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
@@ -279,19 +352,41 @@ const audio = {
     
     // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta
     const stormMultiplier = state.weather === "storm" ? 2.0 : 1.0;
-    const dripVol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
+    const dripVol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
     gainNode.gain.setValueAtTime(dripVol, now);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
     
     osc.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    this.routeClimateNode(gainNode);
     osc.start(now);
     osc.stop(now + 0.035);
   },
 
+  // Micro-golpe de nieve: grave, suave y seco
+  playSnowTick() {
+    if (!state.audioEnabled || !state.audioUnlocked) return;
+    this.init();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gainNode = this.ctx.createGain();
+    osc.type = "triangle";
+    const freq = 150 + Math.random() * 70;
+    osc.frequency.setValueAtTime(freq, now);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.75, now + 0.05);
+
+    const tickVol = state.masterVolume * getClimateVolumeMultiplier() * (0.12 + 0.55 * getClimateDensityMultiplier()) * 0.07;
+    gainNode.gain.setValueAtTime(tickVol, now);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+
+    osc.connect(gainNode);
+    this.routeClimateNode(gainNode);
+    osc.start(now);
+    osc.stop(now + 0.055);
+  },
+
   // Sonido grave analógico de trueno
   playThunder() {
-    if (!state.audioEnabled) return;
+    if (!state.audioEnabled || !state.audioUnlocked) return;
     this.init();
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
@@ -302,40 +397,40 @@ const audio = {
     osc.frequency.exponentialRampToValueAtTime(20, now + 0.85);
     
     // Incorpora el volumen del clima
-    const thunderVol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.6;
+    const thunderVol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.6;
     gainNode.gain.setValueAtTime(thunderVol * 0.16, now);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
     
     osc.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    this.routeClimateNode(gainNode);
     osc.start(now);
     osc.stop(now + 0.9);
   },
   
   // Drone para enjambre de abejas
   startBeeDrone() {
-    if (!state.audioEnabled || this.beeDrone) return;
+    if (!state.audioEnabled || !state.audioUnlocked || this.beeDrone) return;
     this.init();
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gainNode = this.ctx.createGain();
-    osc.type = "sawtooth";
-    osc.frequency.value = 55; // La1 (low drone A1)
+    osc.type = "sine";
+    osc.frequency.value = 185; // zumbido más agudo y suave
     
     // Modulación LFO para vibración de abejas
     const lfo = this.ctx.createOscillator();
     const lfoGain = this.ctx.createGain();
-    lfo.frequency.value = 12; // vibración rápida
-    lfoGain.gain.value = 6;    // oscilar frecuencia +/- 6Hz
+    lfo.frequency.value = 9; // vibración más natural y menos agresiva
+    lfoGain.gain.value = 3;  // menor profundidad de vibrato
     lfo.connect(lfoGain);
     lfoGain.connect(osc.frequency);
     
     // Ajuste de volumen con volumen del clima
-    const vol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.04;
+    const vol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
     gainNode.gain.setValueAtTime(vol, now);
     
     osc.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    this.routeClimateNode(gainNode);
     
     lfo.start(now);
     osc.start(now);
@@ -360,13 +455,13 @@ const audio = {
   updateBeeDroneVolume() {
     if (this.beeDroneGain) {
       const now = this.ctx.currentTime;
-      const vol = state.masterVolume * state.weatherVolume * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.04;
+      const vol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
       this.beeDroneGain.gain.setValueAtTime(vol, now);
     }
   },
 
   startCarDrone() {
-    if (!state.audioEnabled || this.carDrone) return;
+    if (!state.audioEnabled || !state.audioUnlocked || this.carDrone) return;
     this.init();
     const now = this.ctx.currentTime;
     
@@ -376,7 +471,7 @@ const audio = {
     const gainNode = this.ctx.createGain();
     
     osc.type = "sawtooth";
-    osc.frequency.setValueAtTime(45, now); // 45Hz hum grave
+    osc.frequency.setValueAtTime(state.carDroneFreq, now); // frecuencia configurable
     
     filter.type = "lowpass";
     filter.frequency.setValueAtTime(120, now); // Rumor de fondo cálido
@@ -415,6 +510,12 @@ const audio = {
       targetVol = state.masterVolume * 0.05 * Math.min(state.vehicles.length, 3);
     }
     this.carDroneGain.gain.setTargetAtTime(targetVol, now, 0.2); // Transición suave
+  },
+
+  updateCarDroneFrequency() {
+    if (!this.carDrone || !this.ctx) return;
+    const now = this.ctx.currentTime;
+    this.carDrone.frequency.setTargetAtTime(state.carDroneFreq, now, 0.08);
   }
 };
 
@@ -520,6 +621,9 @@ function stepSnow() {
     if (drop.y > 20) {
       drop.y = -Math.random() * 5;
       drop.x = Math.random() * 80;
+      if (Math.random() < 0.045 * getClimateDensityMultiplier()) {
+        audio.playSnowTick();
+      }
     }
     drop.x = (drop.x + 80) % 80;
   });
@@ -815,6 +919,13 @@ function drawCanvas() {
   // 1. Inicializar buffers planos
   const buf = Array(height).fill(null).map(() => Array(width).fill(" "));
   const colors = Array(height).fill(null).map(() => Array(width).fill("ansi-grey"));
+  const owner = Array(height).fill(null).map(() => Array(width).fill(null));
+
+  const getBuildingOpacity = (buildingId) => {
+    const channel = state.channels[buildingId];
+    if (!channel || typeof channel.volume !== "number") return 1;
+    return clamp(channel.volume, 0, 1);
+  };
   
   // 2. Dibujar estrellas parpadeantes en el cielo (solo si no hay tormenta densa)
   if (state.weather !== "storm" || Math.random() < 0.6 * getClimateDensityMultiplier()) {
@@ -859,6 +970,7 @@ function drawCanvas() {
       for (let x = b.config.start_x; x < b.config.start_x + b.config.width; x++) {
         buf[y][x] = "█";
         colors[y][x] = "ansi-darkgrey";
+        owner[y][x] = b.config.id;
       }
     }
     
@@ -874,6 +986,7 @@ function drawCanvas() {
         if (char !== " ") {
           buf[ry][rx + dx] = char;
           colors[ry][rx + dx] = "ansi-grey";
+          owner[ry][rx + dx] = b.config.id;
         }
       }
     }
@@ -898,6 +1011,7 @@ function drawCanvas() {
     b.windows.forEach(row => {
       row.forEach(win => {
         buf[win.y][win.x] = win.on ? "█" : "■";
+        owner[win.y][win.x] = b.config.id;
         if (win.on) {
           colors[win.y][win.x] = getBuildingColor(b.config.type);
         } else {
@@ -926,6 +1040,7 @@ function drawCanvas() {
         for (let dx = 0; dx < word.length; dx++) {
           buf[sy][sx + dx] = word[dx];
           colors[sy][sx + dx] = color;
+          owner[sy][sx + dx] = b.config.id;
         }
       }
     }
@@ -971,6 +1086,7 @@ function drawCanvas() {
             if (Math.random() < 0.4) {
               buf[gy][win.x] = "∼";
               colors[gy][win.x] = colorClass;
+              owner[gy][win.x] = b.config.id;
             }
           }
         }
@@ -1030,7 +1146,7 @@ function drawCanvas() {
   const activeWindows = state.buildings.some(b => b.windows.some(row => row.some(w => w.on)));
   let hint = "";
   if (!activeSweeps) {
-    hint = "[SIN BARRIDOS ACTIVOS]";
+    hint = "";
   } else if (!activeWindows) {
     hint = "[SIN VENTANAS ACTIVAS]";
   } else if ((state.weather === "rain" || state.weather === "snow" || state.weather === "storm" || state.weather === "bees") && state.weatherIntensity <= 0.02) {
@@ -1092,10 +1208,14 @@ function drawCanvas() {
       }
       
       const isWindow = state.coordMap[y][x];
+      const ownerId = owner[y][x];
+      const opacity = ownerId === null ? 1 : getBuildingOpacity(ownerId);
+      const styleAttr = opacity < 1 ? ` style="opacity:${opacity.toFixed(3)}"` : "";
       if (isWindow) {
-        html += `<span class="interactive-window ${styleClass}" data-b="${isWindow.buildingIdx}" data-f="${isWindow.floor}" data-c="${isWindow.col}">${char}</span>`;
+        const windowExtra = opacity === 0 ? ` style="opacity:0;pointer-events:none"` : styleAttr;
+        html += `<span class="interactive-window ${styleClass}" data-b="${isWindow.buildingIdx}" data-f="${isWindow.floor}" data-c="${isWindow.col}"${windowExtra}>${char}</span>`;
       } else {
-        html += `<span class="${styleClass}">${char}</span>`;
+        html += `<span class="${styleClass}"${styleAttr}>${char}</span>`;
       }
     }
     html += "\n";
@@ -1120,6 +1240,18 @@ function rebuildWeatherParticles() {
   createBees();
 }
 
+function syncLifeDroneControls() {
+  if (refs.lifeDroneFreq) {
+    refs.lifeDroneFreq.value = String(Math.round(state.carDroneFreq));
+  }
+  if (refs.lifeDroneFreqVal) {
+    refs.lifeDroneFreqVal.textContent = `${Math.round(state.carDroneFreq)}Hz`;
+  }
+  if (refs.lifeDroneControl) {
+    refs.lifeDroneControl.style.display = isLifeDroneEnabled() ? "block" : "none";
+  }
+}
+
 function applyThemePreset(themeName) {
   if (themeName) {
     setTheme(themeName);
@@ -1138,6 +1270,7 @@ function normalizePreset(rawPreset, fallbackId) {
     weather: preset.weather || "clear",
     weatherVolume: preset.weatherVolume,
     weatherIntensity: preset.weatherIntensity,
+    weatherReverb: preset.weatherReverb,
     lifeMode: preset.lifeMode,
     autoRandomActive: preset.autoRandomActive,
     autoRandomInterval: preset.autoRandomInterval,
@@ -1166,8 +1299,9 @@ function applyPresetById(presetId, syncUI = true) {
 
   if (preset.lifeMode) state.lifeMode = preset.lifeMode;
   if (preset.weather) state.weather = preset.weather;
-  if (typeof preset.weatherVolume === "number") state.weatherVolume = clamp(preset.weatherVolume, 0, 1);
-  if (typeof preset.weatherIntensity === "number") state.weatherIntensity = clamp(preset.weatherIntensity, 0, 1);
+  state.weatherVolume = 0.5;
+  state.weatherIntensity = 0.5;
+  state.weatherReverb = 0;
   if (typeof preset.autoRandomActive === "boolean") state.autoRandomActive = preset.autoRandomActive;
   if (typeof preset.autoRandomInterval === "number") state.autoRandomInterval = clamp(preset.autoRandomInterval, 1, 15);
 
@@ -1194,8 +1328,8 @@ function applyPresetById(presetId, syncUI = true) {
       if (typeof src.active === "boolean") state.sweeps[sweepId].active = src.active;
       if (typeof src.pos === "number") state.sweeps[sweepId].pos = src.pos;
       if (typeof src.bpm === "number") state.sweeps[sweepId].bpm = src.bpm;
-      if (typeof src.delayTime === "number") state.sweeps[sweepId].delayTime = src.delayTime;
-      if (typeof src.delayFeedback === "number") state.sweeps[sweepId].delayFeedback = src.delayFeedback;
+      state.sweeps[sweepId].delayTime = 0;
+      state.sweeps[sweepId].delayFeedback = 0;
       state.sweeps[sweepId].elapsed = 0;
     });
   }
@@ -1204,11 +1338,12 @@ function applyPresetById(presetId, syncUI = true) {
   initSkyline();
   rebuildWeatherParticles();
 
-  if (state.weather === "bees") audio.startBeeDrone();
+  if (state.weather === "bees" && state.audioUnlocked) audio.startBeeDrone();
   else audio.stopBeeDrone();
-  if (isLifeDroneEnabled()) audio.startCarDrone();
+  if (isLifeDroneEnabled() && state.audioUnlocked) audio.startCarDrone();
   audio.updateBeeDroneVolume();
   audio.updateCarDroneVolume();
+  audio.updateClimateReverb();
 
   if (syncUI) syncDOMToState();
 }
@@ -1250,7 +1385,7 @@ function bindConsoleUI() {
   // Audio General Toggle
   refs.audioToggle.addEventListener("change", (e) => {
     state.audioEnabled = e.target.checked;
-    if (state.audioEnabled) {
+    if (state.audioEnabled && state.audioUnlocked) {
       audio.init();
       if (state.weather === "bees") {
         audio.startBeeDrone();
@@ -1351,13 +1486,21 @@ function bindConsoleUI() {
     if (!isLifeEnabled()) {
       state.vehicles = []; // Limpiar vehículos de inmediato al apagar vida
       audio.updateCarDroneVolume(); // Silenciar drone de autos
+      syncLifeDroneControls();
       return;
     }
 
-    if (isLifeDroneEnabled()) {
+    if (isLifeDroneEnabled() && state.audioUnlocked) {
       audio.startCarDrone();
     }
     audio.updateCarDroneVolume();
+    syncLifeDroneControls();
+  });
+
+  refs.lifeDroneFreq.addEventListener("input", (e) => {
+    state.carDroneFreq = Number(e.target.value);
+    refs.lifeDroneFreqVal.textContent = `${e.target.value}Hz`;
+    audio.updateCarDroneFrequency();
   });
 
   // Clic en la stage (MOUSEDOWN para capturar clics rápidos antes de que innerHTML reemplace nodos)
@@ -1386,7 +1529,7 @@ function bindConsoleUI() {
     state.weather = e.target.value;
     
     // Controlar enjambre de abejas
-    if (state.weather === "bees") {
+    if (state.weather === "bees" && state.audioUnlocked) {
       audio.startBeeDrone();
     } else {
       audio.stopBeeDrone();
@@ -1409,6 +1552,12 @@ function bindConsoleUI() {
     state.weatherIntensity = Number(e.target.value) / 100;
     refs.weatherIntensityVal.textContent = `${e.target.value}%`;
     rebuildWeatherParticles();
+  });
+
+  refs.weatherReverb.addEventListener("input", (e) => {
+    state.weatherReverb = Number(e.target.value) / 100;
+    refs.weatherReverbVal.textContent = `${e.target.value}%`;
+    audio.updateClimateReverb();
   });
 
   // Enlace de Activación de Flechas de Secuenciador
@@ -1468,19 +1617,25 @@ function bindConsoleUI() {
   });
 }
 
-// Activar audio al primer click en la página
-document.addEventListener("click", () => {
+function unlockAudioFromUserGesture() {
+  if (state.audioUnlocked) return;
+  state.audioUnlocked = true;
+  if (refs.startOverlay) refs.startOverlay.classList.add("hidden");
+
+  if (!state.audioEnabled) return;
   audio.init();
-  if (state.audioEnabled) {
-    if (state.weather === "bees") {
-      audio.startBeeDrone();
-    }
-    if (isLifeDroneEnabled()) {
-      audio.startCarDrone();
-      audio.updateCarDroneVolume();
-    }
+  if (state.weather === "bees") {
+    audio.startBeeDrone();
   }
-}, { once: true });
+  if (isLifeDroneEnabled()) {
+    audio.startCarDrone();
+    audio.updateCarDroneVolume();
+  }
+}
+
+function handleStartKeydown() {
+  unlockAudioFromUserGesture();
+}
 
 // Bucle secundario de simulación física y eventos (12 FPS = 83ms)
 function startSecondaryLoops() {
@@ -1563,8 +1718,9 @@ async function loadConfig() {
       // 1. Cargar Estado Inicial
       if (config.initial_state) {
         state.masterVolume = config.initial_state.masterVolume !== undefined ? config.initial_state.masterVolume : state.masterVolume;
-        state.weatherVolume = config.initial_state.weatherVolume !== undefined ? config.initial_state.weatherVolume : state.weatherVolume;
-        state.weatherIntensity = config.initial_state.weatherIntensity !== undefined ? clamp(config.initial_state.weatherIntensity, 0, 1) : state.weatherIntensity;
+        state.weatherVolume = 0.5;
+        state.weatherIntensity = 0.5;
+        state.weatherReverb = 0;
         if (config.initial_state.lifeMode !== undefined) {
           state.lifeMode = config.initial_state.lifeMode;
         } else if (config.initial_state.lifeActive !== undefined) {
@@ -1603,8 +1759,8 @@ async function loadConfig() {
             state.sweeps[sweepId].active = yamlSweep.active !== undefined ? yamlSweep.active : state.sweeps[sweepId].active;
             state.sweeps[sweepId].pos = yamlSweep.pos !== undefined ? yamlSweep.pos : state.sweeps[sweepId].pos;
             state.sweeps[sweepId].bpm = yamlSweep.bpm !== undefined ? yamlSweep.bpm : state.sweeps[sweepId].bpm;
-            state.sweeps[sweepId].delayTime = yamlSweep.delayTime !== undefined ? yamlSweep.delayTime : state.sweeps[sweepId].delayTime;
-            state.sweeps[sweepId].delayFeedback = yamlSweep.delayFeedback !== undefined ? yamlSweep.delayFeedback : state.sweeps[sweepId].delayFeedback;
+            state.sweeps[sweepId].delayTime = 0;
+            state.sweeps[sweepId].delayFeedback = 0;
           }
         });
       }
@@ -1618,6 +1774,7 @@ async function loadConfig() {
         weather: state.weather,
         weatherVolume: state.weatherVolume,
         weatherIntensity: state.weatherIntensity,
+        weatherReverb: state.weatherReverb,
         lifeMode: state.lifeMode,
         autoRandomActive: state.autoRandomActive,
         autoRandomInterval: state.autoRandomInterval,
@@ -1660,6 +1817,10 @@ function syncDOMToState() {
     refs.weatherIntensity.value = Math.round(state.weatherIntensity * 100);
     refs.weatherIntensityVal.textContent = `${Math.round(state.weatherIntensity * 100)}%`;
   }
+  if (refs.weatherReverb) {
+    refs.weatherReverb.value = Math.round(state.weatherReverb * 100);
+    refs.weatherReverbVal.textContent = `${Math.round(state.weatherReverb * 100)}%`;
+  }
   if (refs.autoRandomToggle) {
     refs.autoRandomToggle.checked = state.autoRandomActive;
   }
@@ -1675,6 +1836,7 @@ function syncDOMToState() {
         : (state.lifeMode === "on_drone" ? "[ VIDA: ON + DRONE ]" : "[ VIDA: ON - DRONE ]");
       }
   }
+  syncLifeDroneControls();
 
   // Sincronizar active channel selectors/sliders
   syncActiveChannelToUI();
@@ -1737,17 +1899,16 @@ async function initApp() {
     applyPresetById(state.currentPreset, true);
   }
   
-  // Si el modo vida está activo y el audio está habilitado, iniciar el drone de autos
-  if (isLifeDroneEnabled() && state.audioEnabled) {
-    audio.startCarDrone();
-    audio.updateCarDroneVolume();
-  }
-  
   // Forzar actualización inicial
   drawCanvas();
   
   // Iniciar bucles principales
   startSecondaryLoops();
+
+  if (refs.btnStartAudio) {
+    refs.btnStartAudio.addEventListener("click", unlockAudioFromUserGesture, { once: true });
+  }
+  document.addEventListener("keydown", handleStartKeydown, { once: true });
 }
 
 // Cargar aplicación al inicio

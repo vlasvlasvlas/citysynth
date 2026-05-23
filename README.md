@@ -1,101 +1,152 @@
 # CitySynth
 
-CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética terminal/chiptune, interacción en tiempo real y climas que afectan tanto la visual como el audio.
+CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética terminal/chiptune, interacción en tiempo real y climas que afectan visual, comportamiento y audio.
 
 ## Demo
 
-Cuando GitHub Pages esté activo, podés jugarlo online desde:
+- [GitHub Pages](https://vlasvlasvlas.github.io/citysynth/)
 
-- `https://vlasvlasvlas.github.io/citysynth/`
-
-## Características principales
+## Qué incluye hoy
 
 - Skyline ASCII interactivo de 8 edificios.
 - 8 canales sonoros independientes (uno por edificio).
-- Edición en vivo de:
-  - Volumen por canal
-  - Timbre (`sine`, `triangle`, `square`, `sawtooth`)
-  - Escala musical
-  - Frecuencia raíz
-- 4 barridos secuenciadores simultáneos:
-  - Izquierda → Derecha
-  - Derecha → Izquierda
-  - Arriba → Abajo
-  - Abajo → Arriba
-- Delay/feedback por barrido (eco por dirección).
-- Climas reactivos:
-  - `clear`
-  - `rain`
-  - `snow`
-  - `storm`
-  - `bees`
+- 4 barridos secuenciadores simultáneos (`→`, `←`, `↓`, `↑`) con BPM por barrido.
+- Climas reactivos: `clear`, `rain`, `snow`, `storm`, `bees`.
 - Modo vida urbana con 3 estados:
   - `OFF`
   - `ON + DRONE`
   - `ON - DRONE`
-- Configuración inicial por `config.yaml`.
+- Presets temáticos cargados desde YAML.
+- Overlay inicial de arranque (`CLICK PARA INICIAR`) y también inicio por cualquier tecla.
 
-## Controles de uso
+## Cambios funcionales importantes
 
-- Click sobre ventanas: prende/apaga notas.
-- `[ CONFIG ]`: abre sidebar con audio, canales, barridos, clima y herramientas.
-- `[ ? ]`: abre ayuda rápida dentro de la app.
-- `VIDA`: alterna entre los 3 modos de simulación urbana.
+- El audio no arranca al abrir la página: se desbloquea por gesto de usuario (click o tecla).
+- El mensaje `[SIN BARRIDOS ACTIVOS]` fue removido.
+- La visibilidad de cada edificio ahora depende del volumen de su canal:
+  - `0%`: invisible
+  - `1–99%`: opacidad proporcional
+  - `100%`: opacidad completa
+- Nieve tiene un micro-sonido de impacto corto, seco y suave.
+- Abejas ajustadas a un drone más agudo y suave.
+- Clima con reverb dedicada (`REV CLIMA`) independiente del synth principal.
+- Delay/echo de barridos arranca siempre en `0` (la persona lo sube si quiere).
 
-## Cambios recientes incluidos
+## Controles principales
 
-- Abejas simplificadas con char único `*`.
-- Lluvia visual uniforme con `│`.
-- Sonido de gotas más fuerte.
-- En tormenta, gotas al menos 2x de intensidad respecto a lluvia.
-- Corrección de conexiones de delay para evitar acumulación de rutas wet en el audio.
+- Click en ventanas: enciende/apaga nota.
+- `[ CONFIG ]`: abre sidebar de controles.
+- `[ ? ]`: ayuda rápida.
+- `VIDA`: alterna `OFF` / `ON + DRONE` / `ON - DRONE`.
+- `NOTA DRONE` (visible en `ON + DRONE`): cambia frecuencia base del drone de vida en tiempo real.
 
-## Estructura del proyecto
+## Defaults actuales
 
-- `index.html`: layout principal y controles.
-- `style.css`: temas ANSI/terminal y UI.
-- `app.js`: motor visual, simulación, secuenciador y audio WebAudio.
-- `config.yaml`: estado inicial de clima/audio/canales/barridos.
+Estos valores se fuerzan al iniciar y al cambiar de preset:
 
-## Ejecución local
+- `VOL CLIMA`: `50%`
+- `INT CLIMA`: `50%`
+- `REV CLIMA`: `0%`
+- `AUTO AZAR INTERV`: `2s`
+- Delay/Feedback de barridos: `0` por defecto
 
-Como la app carga `config.yaml` vía `fetch`, necesitás servirla por HTTP local (no abrir `index.html` con `file://`).
+## YAML (`config.yaml`) explicado
 
-Opciones simples:
+La app carga `config.yaml` por `fetch` al inicio. Estructura principal:
 
-1. Python
+- `initial_state`: estado inicial general de la app.
+- `buildings`: geometría y tipo de los 8 edificios.
+- `channels`: configuración musical por edificio/canal.
+- `sweeps`: estado inicial de cada barrido.
+- `thematic_presets`: presets completos seleccionables en UI.
+
+### 1) `initial_state`
+
+Ejemplo de claves:
+
+- `masterVolume`: volumen maestro (`0..1`).
+- `weatherVolume`: volumen clima (`0..1`).
+- `weatherIntensity`: intensidad clima (`0..1`).
+- `weatherReverb`: mezcla de reverb de clima (`0..1`).
+- `lifeMode`: `off | on_drone | on_silent`.
+- `weather`: `clear | rain | snow | storm | bees`.
+- `theme`: tema visual.
+- `preset`: id de preset a cargar al inicio.
+- `autoRandomActive`: azar automático ON/OFF.
+- `autoRandomInterval`: intervalo (segundos).
+
+Nota: aunque YAML pueda traer otros valores de clima, la app actualmente fija `VOL/INT/REV` en `50/50/0` al inicio y al aplicar presets.
+
+### 2) `buildings`
+
+Cada edificio define:
+
+- `id`
+- `start_x`
+- `width`
+- `bh` (altura)
+- `floors`
+- `cols`
+- `type`
+
+### 3) `channels`
+
+Cada canal (0..7) define:
+
+- `volume` (`0..1`)
+- `timbre` (`sine`, `triangle`, `square`, `sawtooth`)
+- `scale` (por ejemplo `minor`, `dorian`, `blues`, etc.)
+- `rootFreq` (Hz)
+
+### 4) `sweeps`
+
+Para cada barrido (`L_TO_R`, `R_TO_L`, `T_TO_B`, `B_TO_T`):
+
+- `active`
+- `pos`
+- `bpm`
+- `delayTime`
+- `delayFeedback`
+
+Nota: delay/feedback quedan inicializados en `0` por defecto en runtime.
+
+### 5) `thematic_presets`
+
+Cada preset puede definir:
+
+- estado general (`theme`, `weather`, `lifeMode`, auto azar)
+- `buildings` completo
+- `channels` completo
+- `sweeps` completo
+
+Al seleccionar preset, la app aplica configuración visual/musical y fuerza defaults de clima y echo según lo indicado arriba.
+
+## Estructura del repo
+
+- `index.html`: estructura UI + controles.
+- `style.css`: temas terminal/ANSI y estilos.
+- `app.js`: motor de simulación, render ASCII, secuenciador y audio WebAudio.
+- `config.yaml`: configuración inicial y presets.
+
+## Ejecutar local
+
+La app necesita servidor HTTP (porque carga YAML por `fetch`).
 
 ```bash
 cd citysynth
-python3 -m http.server 8080
+python3 -m http.server 8000
 ```
 
-Abrí: `http://localhost:8080`
+Abrir: [http://localhost:8000](http://localhost:8000)
 
-2. Node (si usás un server estático equivalente)
+## Deploy
 
-Cualquier servidor estático funciona mientras sirva los archivos en la raíz del repo.
+Deploy automático a GitHub Pages en cada push a `main` (workflow ya incluido).
 
-## Deploy automático con GitHub Actions + Pages
-
-Este repo incluye workflow para deploy automático a GitHub Pages en cada push a `main`.
-
-Pasos necesarios (una sola vez en GitHub):
-
-1. Ir a `Settings > Pages`.
-2. En `Build and deployment`, elegir `Source: GitHub Actions`.
-3. Verificar que el workflow `Deploy to GitHub Pages` corra en el próximo push.
-
-Luego de eso, cada push a `main` publica la versión nueva.
-
-## Stack técnico
+## Stack
 
 - HTML5
 - CSS3
-- JavaScript Vanilla
+- JavaScript (Vanilla)
 - Web Audio API
 - JS-YAML (CDN)
-
-## Licencia
-
-Si querés, te agrego una licencia explícita (`MIT`, por ejemplo) en un próximo commit.

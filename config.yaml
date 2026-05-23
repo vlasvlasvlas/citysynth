@@ -1,13 +1,14 @@
 initial_state:
   masterVolume: 0.5
-  weatherVolume: 0.7
-  weatherIntensity: 0.8
-  lifeMode: "on_drone"
+  weatherVolume: 0.5
+  weatherIntensity: 0.5
+  weatherReverb: 0.0
+  lifeMode: "on_silent"
   weather: "clear"
   theme: "dark-city"
   preset: "blade_runner_night"
   autoRandomActive: false
-  autoRandomInterval: 5
+  autoRandomInterval: 2
 
 buildings:
   - id: 0
@@ -132,9 +133,10 @@ thematic_presets:
     label: "Blade Runner Night"
     theme: "dark-city"
     weather: "rain"
-    weatherVolume: 0.9
-    weatherIntensity: 0.95
-    lifeMode: "on_drone"
+    weatherVolume: 0.5
+    weatherIntensity: 0.5
+    weatherReverb: 0.0
+    lifeMode: "on_silent"
     autoRandomActive: true
     autoRandomInterval: 8
     buildings:

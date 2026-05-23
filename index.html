@@ -11,6 +11,13 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
+    <div id="startOverlay" class="start-overlay">
+      <div class="start-card">
+        <h1>CITYSYNTH</h1>
+        <p>Secuenciador visual ASCII</p>
+        <button id="btnStartAudio" type="button">CLICK PARA INICIAR</button>
+      </div>
+    </div>
     <div class="app">
       <!-- Navbar plana de control -->
       <header class="topbar">
@@ -289,6 +296,11 @@
               <input id="weatherIntensity" type="range" min="0" max="100" value="100" />
               <span id="weatherIntensityVal">100%</span>
             </div>
+            <div class="param-row" style="margin-top: 8px;">
+              <span>REV CLIMA:</span>
+              <input id="weatherReverb" type="range" min="0" max="100" value="35" />
+              <span id="weatherReverbVal">35%</span>
+            </div>
           </div>
         </div>
 
@@ -308,12 +320,19 @@
               </label>
               <div class="param-row" style="margin-top: 4px; font-size: 0.75rem;">
                 <span>INTERV:</span>
-                <input id="autoRandomInterval" type="range" min="1" max="15" value="5" style="width: 100px;" />
-                <span id="autoRandomIntervalVal">5s</span>
+                <input id="autoRandomInterval" type="range" min="1" max="15" value="2" style="width: 100px;" />
+                <span id="autoRandomIntervalVal">2s</span>
               </div>
             </div>
             
             <button class="sidebar-btn" id="btnLifeToggle" style="margin-top: 8px;"><span>[ VIDA: ON ]</span></button>
+            <div id="lifeDroneControl" style="border-top: 1px dashed var(--border-color); margin-top: 8px; padding-top: 8px; display: none;">
+              <div class="param-row" style="font-size: 0.75rem;">
+                <span>NOTA DRONE:</span>
+                <input id="lifeDroneFreq" type="range" min="30" max="220" value="45" />
+                <span id="lifeDroneFreqVal">45Hz</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
