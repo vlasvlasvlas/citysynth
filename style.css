@@ -1,0 +1,703 @@
+/* ESTILO TERMINAL ANSI/ASCII PURO - HIGH CONTRAST THEMING */
+
+:root {
+  /* DOS Blue default values (high contrast, readable out of the box) */
+  --bg-dark: #0000a8;
+  --bg-panel: #000080;
+  --border-color: #55a8a8;
+  --text-primary: #ffffff;
+  --text-muted: #a8a8a8;
+  
+  --ansi-black: #000000;
+  --ansi-red: #ff5555;
+  --ansi-green: #55ff55;
+  --ansi-yellow: #ffff55;
+  --ansi-blue: #5555ff;
+  --ansi-magenta: #ff55ff;
+  --ansi-cyan: #55ffff;
+  --ansi-white: #ffffff;
+  --ansi-grey: #a8a8a8;
+  --ansi-darkgrey: #00a8a8; /* Cyan buildings on blue background! */
+  
+  --ansi-highlight: #0055ff;
+  --ansi-cursor-v: #0033aa;
+  --ansi-cursor-h: #0033aa;
+  --ansi-intersect: #ff5555;
+}
+
+body.theme-light-paper {
+  --bg-dark: #f2f2e8;
+  --bg-panel: #e2e2d0;
+  --border-color: #888899;
+  --text-primary: #111116;
+  --text-muted: #555566;
+  
+  --ansi-black: #000000;
+  --ansi-red: #cc0000;
+  --ansi-green: #008800;
+  --ansi-yellow: #aa7700;
+  --ansi-blue: #0000cc;
+  --ansi-magenta: #cc00cc;
+  --ansi-cyan: #008888;
+  --ansi-white: #111116;
+  --ansi-grey: #777788;
+  --ansi-darkgrey: #888899; /* Grey buildings on light background! */
+  
+  --ansi-highlight: #dcdcc0;
+  --ansi-cursor-v: #ccccb0;
+  --ansi-cursor-h: #ccccb0;
+  --ansi-intersect: #cc0000;
+}
+
+body.theme-green-screen {
+  --bg-dark: #001800;
+  --bg-panel: #002800;
+  --border-color: #00aa00;
+  --text-primary: #33ff33;
+  --text-muted: #00aa00;
+  
+  --ansi-black: #000000;
+  --ansi-red: #ff3333;
+  --ansi-green: #33ff33;
+  --ansi-yellow: #ffff33;
+  --ansi-blue: #3333ff;
+  --ansi-magenta: #ff33ff;
+  --ansi-cyan: #33ffff;
+  --ansi-white: #33ff33;
+  --ansi-grey: #008800;
+  --ansi-darkgrey: #004400; /* Darker green buildings */
+  
+  --ansi-highlight: #004400;
+  --ansi-cursor-v: #003300;
+  --ansi-cursor-h: #003300;
+  --ansi-intersect: #ff3333;
+}
+
+body.theme-amber-terminal {
+  --bg-dark: #180800;
+  --bg-panel: #2d0e00;
+  --border-color: #aa7700;
+  --text-primary: #ffb000;
+  --text-muted: #aa7700;
+  
+  --ansi-black: #000000;
+  --ansi-red: #ff3333;
+  --ansi-green: #33ff33;
+  --ansi-yellow: #ffb000;
+  --ansi-blue: #3333ff;
+  --ansi-magenta: #ff33ff;
+  --ansi-cyan: #33ffff;
+  --ansi-white: #ffb000;
+  --ansi-grey: #aa7700;
+  --ansi-darkgrey: #552200; /* Dark amber buildings */
+  
+  --ansi-highlight: #441800;
+  --ansi-cursor-v: #331100;
+  --ansi-cursor-h: #331100;
+  --ansi-intersect: #ff3333;
+}
+
+body.theme-dark-city {
+  --bg-dark: #121214;
+  --bg-panel: #1e1e22;
+  --border-color: #555566;
+  --text-primary: #ffffff;
+  --text-muted: #888899;
+  
+  --ansi-black: #000000;
+  --ansi-red: #ff5555;
+  --ansi-green: #55ff55;
+  --ansi-yellow: #ffff55;
+  --ansi-blue: #5555ff;
+  --ansi-magenta: #ff55ff;
+  --ansi-cyan: #55ffff;
+  --ansi-white: #ffffff;
+  --ansi-grey: #888899;
+  --ansi-darkgrey: #3c3c45; /* Visible grey buildings */
+  
+  --ansi-highlight: #3c3c45;
+  --ansi-cursor-v: #2a2a32;
+  --ansi-cursor-h: #2a2a32;
+  --ansi-intersect: #ff5555;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border-radius: 0 !important; /* Estrictamente sin bordes redondeados */
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  font-size: 14px;
+  overflow-x: hidden;
+  height: 100vh;
+  /* Desactivar suavizados de tipografía para look pixelado crudo */
+  -webkit-font-smoothing: none;
+  -moz-osx-font-smoothing: none;
+  text-rendering: optimizeSpeed;
+}
+
+/* Colores ANSI Sólidos Clásicos */
+.ansi-black      { color: var(--ansi-black); }
+.ansi-red        { color: var(--ansi-red); }
+.ansi-green      { color: var(--ansi-green); }
+.ansi-yellow     { color: var(--ansi-yellow); }
+.ansi-blue       { color: var(--ansi-blue); }
+.ansi-magenta    { color: var(--ansi-magenta); }
+.ansi-cyan       { color: var(--ansi-cyan); }
+.ansi-white      { color: var(--ansi-white); }
+.ansi-grey       { color: var(--ansi-grey); }
+.ansi-darkgrey   { color: var(--ansi-darkgrey); }
+
+/* Resaltado del cursor de barrido */
+.ansi-highlight  { background-color: var(--ansi-highlight); color: var(--text-primary); }
+.ansi-cursor-v   { color: var(--text-primary); background-color: var(--ansi-cursor-v); }
+.ansi-cursor-h   { color: var(--text-primary); background-color: var(--ansi-cursor-h); }
+.ansi-intersect  { color: var(--text-primary); background-color: var(--ansi-intersect); font-weight: bold; }
+
+/* Estructura Principal */
+.app {
+  max-width: 100%;
+  margin: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* Topbar plana estilo terminal */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.brand {
+  font-size: 1.2rem;
+  font-weight: bold;
+  letter-spacing: 2px;
+  color: var(--ansi-green);
+}
+
+.topbar-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.visual-container {
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+}
+
+.param-row select {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 2px 6px;
+  font-family: inherit;
+  outline: none;
+}
+
+/* Stage Visual (Lienzo del Pre de Texto Plano) */
+.stage {
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  padding: 10px;
+  flex-grow: 1;
+}
+
+.terminal-canvas {
+  font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+  font-size: 14.5px;
+  line-height: 1.2;
+  letter-spacing: 0px;
+  color: var(--text-primary);
+  background-color: var(--bg-dark);
+  white-space: pre;
+  user-select: none;
+  cursor: default;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0;
+}
+
+.terminal-canvas span {
+  display: inline-block;
+  width: 1ch;
+  text-align: center;
+}
+
+/* Estilos de ventanas interactivas del lienzo */
+.interactive-window {
+  cursor: pointer;
+}
+.interactive-window:hover {
+  background-color: var(--text-primary);
+  color: var(--bg-dark) !important;
+}
+
+/* Panel Consola de Mandos */
+.panel {
+  background-color: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.console-section {
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-dark);
+  padding: 10px;
+  position: relative;
+  margin-top: 4px;
+}
+
+.console-title {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  position: absolute;
+  top: -8px;
+  left: 10px;
+  background-color: var(--bg-panel);
+  padding: 0 4px;
+}
+
+/* Grid Tools */
+.actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.actions-grid.cols-3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Botones Planos */
+button {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-family: inherit;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  outline: none;
+  transition: none; /* Instantáneo, sin transiciones modernas */
+}
+
+button:hover {
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+button:active {
+  background: var(--text-primary);
+  color: var(--bg-dark);
+}
+
+button.active {
+  background: var(--ansi-green);
+  color: var(--bg-dark);
+  border-color: var(--ansi-green);
+  font-weight: bold;
+}
+
+/* Custom Checkbox terminal-style */
+.terminal-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  user-select: none;
+}
+.terminal-checkbox input {
+  display: none;
+}
+.checkbox-box {
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-dark);
+  display: inline-block;
+  position: relative;
+}
+.terminal-checkbox input:checked + .checkbox-box::after {
+  content: "X";
+  color: var(--ansi-green);
+  font-size: 10px;
+  font-weight: bold;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Sliders Planos */
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 14px;
+  background: var(--text-primary);
+  border: 1px solid var(--bg-dark);
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: var(--ansi-green);
+}
+
+/* Controles de los 4 Barridos */
+.sweeps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sweep-row {
+  border: 1px dashed var(--border-color);
+  padding: 8px;
+  background-color: var(--bg-panel);
+}
+
+.sweep-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sweep-dir-indicator {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: var(--ansi-cyan);
+}
+
+.sweep-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sweep-bpm-slider {
+  display: grid;
+  grid-template-columns: 35px 1fr 30px;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.bpm-val {
+  text-align: right;
+  color: var(--text-primary);
+}
+
+.sweep-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 4px;
+}
+
+.sweep-actions .action-btn {
+  font-size: 0.75rem;
+  padding: 4px;
+  text-align: center;
+}
+
+.sweep-actions .action-btn.active {
+  background-color: var(--ansi-green);
+  color: var(--bg-dark);
+  border-color: var(--ansi-green);
+}
+
+/* Métricas */
+.metrics-terminal {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+}
+
+.text-red { color: var(--ansi-red); }
+.text-blue { color: var(--ansi-cyan); }
+.text-green { color: var(--ansi-green); }
+.text-yellow { color: var(--ansi-yellow); }
+
+/* Log Screen */
+.terminal-log-container {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 120px;
+}
+
+.log-screen {
+  flex-grow: 1;
+  background-color: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  padding: 6px;
+  overflow-y: auto;
+  font-size: 0.75rem;
+}
+
+.log-screen ul {
+  list-style: none;
+}
+
+.log-screen li {
+  color: var(--text-primary);
+  border-left: 2px solid var(--border-color);
+  padding-left: 6px;
+  margin-bottom: 2px;
+}
+
+/* Modificaciones Responsivas */
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+  
+  .app {
+    height: auto;
+    overflow-y: auto;
+  }
+  
+  .stage {
+    height: auto;
+    min-height: 300px;
+  }
+  
+  .panel {
+    height: auto;
+    overflow-y: visible;
+  }
+}
+
+/* Nuevos Estilos del Secuenciador Simplificado */
+.direction-arrows {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.arrow-btn {
+  background: var(--bg-dark);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: bold;
+  padding: 4px 10px;
+  cursor: pointer;
+  width: 50px;
+  text-align: center;
+}
+
+.arrow-btn:hover {
+  background: var(--bg-panel);
+  border-color: var(--text-primary);
+}
+
+.arrow-btn.active {
+  background-color: var(--ansi-green) !important;
+  color: var(--bg-dark) !important;
+  border-color: var(--ansi-green) !important;
+}
+
+/* Sobrescribir cursores para contraste de vídeo inverso */
+.ansi-cursor-v {
+  background-color: var(--text-primary) !important;
+  color: var(--bg-dark) !important;
+}
+
+.ansi-cursor-h {
+  background-color: var(--text-primary) !important;
+  color: var(--bg-dark) !important;
+}
+
+.ansi-intersect {
+  background-color: var(--ansi-red) !important;
+  color: var(--bg-dark) !important;
+  font-weight: bold;
+}
+
+/* Sidebar Lateral deslizable */
+.terminal-sidebar {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 320px;
+  height: 100vh;
+  background-color: var(--bg-panel);
+  border-left: 2px solid var(--border-color);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(320px);
+  transition: transform 0.15s ease-out;
+}
+
+.terminal-sidebar.open {
+  transform: translateX(0);
+}
+
+.sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+  background-color: var(--bg-dark);
+}
+
+.sidebar-body {
+  padding: 15px;
+  overflow-y: auto;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* Modal y Backdrop */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.6);
+  z-index: 900;
+  display: none;
+}
+
+.modal-backdrop.open {
+  display: block;
+}
+
+.terminal-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 500px;
+  background-color: var(--bg-panel);
+  border: 2px solid var(--border-color);
+  z-index: 1001;
+  display: none;
+  flex-direction: column;
+}
+
+.terminal-modal.open {
+  display: flex;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: var(--bg-dark);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-body {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 0.85rem;
+}
+
+.modal-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--ansi-red);
+  font-weight: bold;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.modal-close-btn:hover {
+  background: var(--ansi-red);
+  color: var(--bg-dark);
+}
+
+.help-desc {
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.instructions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px dashed var(--border-color);
+  padding: 10px;
+  background-color: var(--bg-dark);
+}
+
+.git-repo-box {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.git-link {
+  color: var(--ansi-cyan);
+  text-decoration: underline;
+}
+.git-link:hover {
+  color: var(--ansi-yellow);
+}
+
+.sidebar-btn {
+  width: 100%;
+  text-align: left;
+  margin-bottom: 6px;
+}
+
+body.lightning-flash {
+  filter: invert(1);
+}

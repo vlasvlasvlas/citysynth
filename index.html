@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BuildingSynth: Terminal ASCII Skyline</title>
+    <!-- Google Fonts: JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Navbar plana de control -->
+      <header class="topbar">
+        <div class="brand">BUILDINGSYNTH</div>
+        <div class="topbar-controls">
+          <button id="btnOpenConfig"><span>[ CONFIG ]</span></button>
+          <button id="btnOpenHelp"><span>[ ? ]</span></button>
+        </div>
+      </header>
+
+      <!-- Main Visual Screen (full screen terminal art) -->
+      <main class="visual-container">
+        <section class="stage" aria-label="Pantalla de Terminal">
+          <pre id="stageCanvas" class="terminal-canvas"></pre>
+        </section>
+      </main>
+    </div>
+
+    <!-- Backdrop for Modals and Sidebar -->
+    <div id="modalBackdrop" class="modal-backdrop"></div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="terminal-modal">
+      <div class="modal-header">
+        <span>[ AYUDA ]</span>
+        <button id="btnCloseHelp" class="modal-close-btn">[ X ]</button>
+      </div>
+      <div class="modal-body">
+        <p class="help-desc">
+          <strong>BUILDINGSYNTH v2.5</strong> es un secuenciador visual y sintetizador chiptune generativo basado en un skyline nocturno de arte ASCII.
+        </p>
+        <div class="instructions-list">
+          <p><strong>- INTERACCIÓN:</strong> Haz clic en cualquier ventana para prender/apagar la nota (siempre activo).</p>
+          <p><strong>- SECUENCIADOR:</strong> Abre [ CONFIG ] y activa los barridos (→, ←, ↓, ↑). Cada uno tiene su propio BPM. Al cruzarse con ventanas encendidas, se reproducirán.</p>
+          <p><strong>- CANALES:</strong> Configura individualmente el volumen, timbre, escala armónica y nota raíz de cada uno de los 8 edificios.</p>
+          <p><strong>- CLIMAS:</strong> La lluvia genera gotas y micro-clicks; la nieve congela y reduce la velocidad/duración; la tormenta provoca destellos, truenos y ráfagas de viento; las abejas revolotean modulando el tono con vibrato LFO.</p>
+        </div>
+        <div class="git-repo-box">
+          <span>PROYECTO EN GITHUB:</span>
+          <a href="https://github.com/vlasvlasvlas/buildingsynth" target="_blank" class="git-link">github.com/vlasvlasvlas/buildingsynth</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sliding Configurations Sidebar -->
+    <aside id="configSidebar" class="terminal-sidebar">
+      <div class="sidebar-header">
+        <span>[ CONFIGURACIONES ]</span>
+        <button id="btnCloseConfig" class="modal-close-btn">[ X ]</button>
+      </div>
+      
+      <div class="sidebar-body">
+        <!-- Audio parameters -->
+        <div class="console-section">
+          <h2 class="console-title">[ MOTOR_DE_AUDIO ]</h2>
+          <div class="sidebar-controls">
+            <div class="param-row">
+              <span>VOL MAESTRO:</span>
+              <input id="volumeSlider" type="range" min="0" max="100" value="50" />
+              <span id="volumeVal">50%</span>
+            </div>
+            <div class="param-row">
+              <label class="terminal-checkbox">
+                <input type="checkbox" id="audioToggle" checked />
+                <span class="checkbox-box"></span>
+                <span class="checkbox-label">AUDIO HABILITADO</span>
+              </label>
+            </div>
+            
+            <!-- Per-building Channel configuration -->
+            <div class="channel-config-box" style="border-top: 1px dashed var(--border-color); margin-top: 10px; padding-top: 10px;">
+              <span class="control-label" style="font-weight: bold; color: var(--ansi-cyan); display: block; margin-bottom: 6px;">EDITAR CANALES (EDIFICIOS):</span>
+              <div class="param-row">
+                <span>CANAL/EDIF:</span>
+                <select id="channelSelect">
+                  <option value="0">Edificio 0 (Zen)</option>
+                  <option value="1">Edificio 1 (Bass)</option>
+                  <option value="2">Edificio 2 (Arp)</option>
+                  <option value="3">Edificio 3 (Pad)</option>
+                  <option value="4">Edificio 4 (Noise)</option>
+                  <option value="5">Edificio 5 (Aeolian)</option>
+                  <option value="6">Edificio 6 (Whole)</option>
+                  <option value="7">Edificio 7 (Blues)</option>
+                </select>
+              </div>
+              <div class="param-row">
+                <span>VOLUMEN:</span>
+                <input id="channelVolume" type="range" min="0" max="100" value="80" />
+                <span id="channelVolumeVal">80%</span>
+              </div>
+              <div class="param-row">
+                <span>TIMBRE:</span>
+                <select id="channelTimbre">
+                  <option value="sine">Senoidal (Sine)</option>
+                  <option value="triangle">Triangular (Triangle)</option>
+                  <option value="square">Cuadrada (Square)</option>
+                  <option value="sawtooth">Sierra (Sawtooth)</option>
+                </select>
+              </div>
+              <div class="param-row">
+                <span>ESCALA:</span>
+                <select id="channelScale">
+                  <option value="pentatonic_major">Pentatónica Mayor</option>
+                  <option value="pentatonic_minor">Pentatónica Menor</option>
+                  <option value="major">Jónica (Mayor)</option>
+                  <option value="dorian">Dorio</option>
+                  <option value="phrygian">Frigio</option>
+                  <option value="lydian">Lidio</option>
+                  <option value="minor">Eolio (Menor Nat)</option>
+                  <option value="whole_tone">Tonos Enteros</option>
+                  <option value="blues">Blues</option>
+                </select>
+              </div>
+              <div class="param-row">
+                <span>RAÍZ:</span>
+                <select id="channelRoot">
+                  <option value="65.41">Do2 (C2) - 65.41Hz</option>
+                  <option value="73.42">Re2 (D2) - 73.42Hz</option>
+                  <option value="82.41">Mi2 (E2) - 82.41Hz</option>
+                  <option value="87.31">Fa2 (F2) - 87.31Hz</option>
+                  <option value="97.99">Sol2 (G2) - 97.99Hz</option>
+                  <option value="110.00">La2 (A2) - 110.00Hz</option>
+                  <option value="123.47">Si2 (B2) - 123.47Hz</option>
+                  <option value="130.81">Do3 (C3) - 130.81Hz</option>
+                  <option value="146.83">Re3 (D3) - 146.83Hz</option>
+                  <option value="164.81">Mi3 (E3) - 164.81Hz</option>
+                  <option value="174.61">Fa3 (F3) - 174.61Hz</option>
+                  <option value="196.00">Sol3 (G3) - 196.00Hz</option>
+                  <option value="220.00">La3 (A3) - 220.00Hz</option>
+                  <option value="246.94">Si3 (B3) - 246.94Hz</option>
+                  <option value="261.63">Do4 (C4) - 261.63Hz</option>
+                  <option value="293.66">Re4 (D4) - 293.66Hz</option>
+                  <option value="329.63">Mi4 (E4) - 329.63Hz</option>
+                  <option value="392.00">Sol4 (G4) - 392.00Hz</option>
+                  <option value="440.00">La4 (A4) - 440.00Hz</option>
+                  <option value="523.25">Do5 (C5) - 523.25Hz</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sequencer Parameters -->
+        <div class="console-section">
+          <h2 class="console-title">[ SECUENCIADOR ]</h2>
+          <div class="sidebar-controls">
+            <span class="control-label" style="font-weight: bold; color: var(--ansi-cyan); display: block; margin-bottom: 6px;">BARRIDOS Y BPM:</span>
+            
+            <!-- L_TO_R (→) -->
+            <div class="sweep-bpm-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
+              <button class="arrow-btn" id="btnSweep_L_TO_R" data-sweep="L_TO_R" style="margin: 0; padding: 4px 8px; width: 40px;"><span>→</span></button>
+              <div style="display: flex; align-items: center; flex-grow: 1; gap: 4px; font-size: 0.75rem;">
+                <span>BPM:</span>
+                <input id="bpmSlider_L_TO_R" type="range" min="30" max="360" value="120" style="height: 4px;" />
+                <span id="bpmVal_L_TO_R" style="width: 25px; text-align: right;">120</span>
+              </div>
+            </div>
+            <div class="sweep-delay-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; padding-left: 8px; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>ECO:</span>
+                <input id="delayTime_L_TO_R" type="range" min="0" max="1000" value="250" style="width: 60px; height: 3px;" />
+                <span id="delayTimeVal_L_TO_R">250ms</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>FDBK:</span>
+                <input id="delayFeedback_L_TO_R" type="range" min="0" max="90" value="30" style="width: 40px; height: 3px;" />
+                <span id="delayFeedbackVal_L_TO_R">30%</span>
+              </div>
+            </div>
+
+            <!-- R_TO_L (←) -->
+            <div class="sweep-bpm-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
+              <button class="arrow-btn" id="btnSweep_R_TO_L" data-sweep="R_TO_L" style="margin: 0; padding: 4px 8px; width: 40px;"><span>←</span></button>
+              <div style="display: flex; align-items: center; flex-grow: 1; gap: 4px; font-size: 0.75rem;">
+                <span>BPM:</span>
+                <input id="bpmSlider_R_TO_L" type="range" min="30" max="360" value="120" style="height: 4px;" />
+                <span id="bpmVal_R_TO_L" style="width: 25px; text-align: right;">120</span>
+              </div>
+            </div>
+            <div class="sweep-delay-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; padding-left: 8px; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>ECO:</span>
+                <input id="delayTime_R_TO_L" type="range" min="0" max="1000" value="250" style="width: 60px; height: 3px;" />
+                <span id="delayTimeVal_R_TO_L">250ms</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>FDBK:</span>
+                <input id="delayFeedback_R_TO_L" type="range" min="0" max="90" value="30" style="width: 40px; height: 3px;" />
+                <span id="delayFeedbackVal_R_TO_L">30%</span>
+              </div>
+            </div>
+
+            <!-- T_TO_B (↓) -->
+            <div class="sweep-bpm-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
+              <button class="arrow-btn" id="btnSweep_T_TO_B" data-sweep="T_TO_B" style="margin: 0; padding: 4px 8px; width: 40px;"><span>↓</span></button>
+              <div style="display: flex; align-items: center; flex-grow: 1; gap: 4px; font-size: 0.75rem;">
+                <span>BPM:</span>
+                <input id="bpmSlider_T_TO_B" type="range" min="30" max="360" value="120" style="height: 4px;" />
+                <span id="bpmVal_T_TO_B" style="width: 25px; text-align: right;">120</span>
+              </div>
+            </div>
+            <div class="sweep-delay-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 12px; padding-left: 8px; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>ECO:</span>
+                <input id="delayTime_T_TO_B" type="range" min="0" max="1000" value="250" style="width: 60px; height: 3px;" />
+                <span id="delayTimeVal_T_TO_B">250ms</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>FDBK:</span>
+                <input id="delayFeedback_T_TO_B" type="range" min="0" max="90" value="30" style="width: 40px; height: 3px;" />
+                <span id="delayFeedbackVal_T_TO_B">30%</span>
+              </div>
+            </div>
+
+            <!-- B_TO_T (↑) -->
+            <div class="sweep-bpm-row" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 8px;">
+              <button class="arrow-btn" id="btnSweep_B_TO_T" data-sweep="B_TO_T" style="margin: 0; padding: 4px 8px; width: 40px;"><span>↑</span></button>
+              <div style="display: flex; align-items: center; flex-grow: 1; gap: 4px; font-size: 0.75rem;">
+                <span>BPM:</span>
+                <input id="bpmSlider_B_TO_T" type="range" min="30" max="360" value="120" style="height: 4px;" />
+                <span id="bpmVal_B_TO_T" style="width: 25px; text-align: right;">120</span>
+              </div>
+            </div>
+            <div class="sweep-delay-row" style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 4px; padding-left: 8px; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>ECO:</span>
+                <input id="delayTime_B_TO_T" type="range" min="0" max="1000" value="250" style="width: 60px; height: 3px;" />
+                <span id="delayTimeVal_B_TO_T">250ms</span>
+              </div>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <span>FDBK:</span>
+                <input id="delayFeedback_B_TO_T" type="range" min="0" max="90" value="30" style="width: 40px; height: 3px;" />
+                <span id="delayFeedbackVal_B_TO_T">30%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Visual / Theme Parameters -->
+        <div class="console-section">
+          <h2 class="console-title">[ TERMINAL ]</h2>
+          <div class="sidebar-controls">
+            <div class="param-row">
+              <span>TEMA:</span>
+              <select id="themeSelect">
+                <option value="dos-blue" selected>DOS Azul (Turbo C)</option>
+                <option value="light-paper">Papel Claro (VT100)</option>
+                <option value="green-screen">Fósforo Verde</option>
+                <option value="amber-terminal">Ámbar Terminal</option>
+                <option value="dark-city">Ciudad Oscura</option>
+              </select>
+            </div>
+            <div class="param-row" style="margin-top: 8px;">
+              <span>CLIMA:</span>
+              <select id="weatherSelect">
+                <option value="clear" selected>Despejado (Clear)</option>
+                <option value="rain">Lluvia (Rain)</option>
+                <option value="snow">Nieve (Snow)</option>
+                <option value="storm">Tormenta (Storm)</option>
+                <option value="bees">Abejas (Bees Swarm)</option>
+              </select>
+            </div>
+            <div class="param-row" style="margin-top: 8px;">
+              <span>VOL CLIMA:</span>
+              <input id="weatherVolume" type="range" min="0" max="100" value="50" />
+              <span id="weatherVolumeVal">50%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid Tools -->
+        <div class="console-section">
+          <h2 class="console-title">[ RED_DE_VENTANAS ]</h2>
+          <div class="sidebar-tools">
+            <button class="sidebar-btn" id="btnClear"><span>[ LIMPIAR GRILLA ]</span></button>
+            <button class="sidebar-btn" id="btnRandom"><span>[ LLENAR AZAR ]</span></button>
+            
+            <!-- Azar Automático -->
+            <div style="border-top: 1px dashed var(--border-color); margin-top: 8px; padding-top: 8px; display: flex; flex-direction: column; gap: 4px;">
+              <label class="terminal-checkbox">
+                <input type="checkbox" id="autoRandomToggle" />
+                <span class="checkbox-box"></span>
+                <span class="checkbox-label">AZAR AUTO (ON)</span>
+              </label>
+              <div class="param-row" style="margin-top: 4px; font-size: 0.75rem;">
+                <span>INTERV:</span>
+                <input id="autoRandomInterval" type="range" min="1" max="15" value="5" style="width: 100px;" />
+                <span id="autoRandomIntervalVal">5s</span>
+              </div>
+            </div>
+            
+            <button class="sidebar-btn" id="btnLifeToggle" style="margin-top: 8px;"><span>[ VIDA: ON ]</span></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- JS-YAML CDN para cargar configuraciones en YAML -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
