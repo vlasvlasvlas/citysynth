@@ -197,9 +197,9 @@ const audio = {
   climateInput: null,
   climateDryGain: null,
   climateSendGain: null,
-  climateDelay: null,
-  climateFeedback: null,
-  climateWetFilter: null,
+  climateConvolver: null,
+  climateWetHighpass: null,
+  climateWetLowpass: null,
   climateWetGain: null,
   
   init() {
@@ -228,23 +228,37 @@ const audio = {
     this.climateInput = this.ctx.createGain();
     this.climateDryGain = this.ctx.createGain();
     this.climateSendGain = this.ctx.createGain();
-    this.climateDelay = this.ctx.createDelay(1.2);
-    this.climateFeedback = this.ctx.createGain();
-    this.climateWetFilter = this.ctx.createBiquadFilter();
+    this.climateConvolver = this.ctx.createConvolver();
+    this.climateWetHighpass = this.ctx.createBiquadFilter();
+    this.climateWetLowpass = this.ctx.createBiquadFilter();
     this.climateWetGain = this.ctx.createGain();
+    this.climateConvolver.buffer = this.createClimateImpulse(2.2, 2.4);
 
     this.climateInput.connect(this.climateDryGain);
     this.climateDryGain.connect(this.ctx.destination);
 
     this.climateInput.connect(this.climateSendGain);
-    this.climateSendGain.connect(this.climateDelay);
-    this.climateDelay.connect(this.climateFeedback);
-    this.climateFeedback.connect(this.climateDelay);
-    this.climateDelay.connect(this.climateWetFilter);
-    this.climateWetFilter.connect(this.climateWetGain);
+    this.climateSendGain.connect(this.climateConvolver);
+    this.climateConvolver.connect(this.climateWetHighpass);
+    this.climateWetHighpass.connect(this.climateWetLowpass);
+    this.climateWetLowpass.connect(this.climateWetGain);
     this.climateWetGain.connect(this.ctx.destination);
 
     this.updateClimateReverb();
+  },
+
+  createClimateImpulse(seconds = 2.0, decay = 2.2) {
+    const length = Math.floor(this.ctx.sampleRate * seconds);
+    const impulse = this.ctx.createBuffer(2, length, this.ctx.sampleRate);
+    for (let ch = 0; ch < impulse.numberOfChannels; ch++) {
+      const data = impulse.getChannelData(ch);
+      for (let i = 0; i < length; i++) {
+        const t = i / length;
+        const env = Math.pow(1 - t, decay);
+        data[i] = (Math.random() * 2 - 1) * env;
+      }
+    }
+    return impulse;
   },
 
   routeClimateNode(node) {
@@ -256,22 +270,19 @@ const audio = {
   },
 
   updateClimateReverb() {
-    if (!this.ctx || !this.climateDryGain || !this.climateSendGain || !this.climateDelay || !this.climateFeedback || !this.climateWetFilter || !this.climateWetGain) return;
+    if (!this.ctx || !this.climateDryGain || !this.climateSendGain || !this.climateWetHighpass || !this.climateWetLowpass || !this.climateWetGain) return;
     const now = this.ctx.currentTime;
     const mix = clamp(state.weatherReverb, 0, 1);
-    const dry = 1 - (mix * 0.62);
-    const send = mix * 0.85;
-    const delayTime = 0.065 + (0.14 * mix);
-    const feedback = 0.12 + (0.30 * mix);
-    const wet = mix * 0.72;
-    const wetFilterCutoff = 3400 - (mix * 1700);
-    this.climateWetFilter.type = "lowpass";
+    const dry = 1 - (mix * 0.55);
+    const send = mix * 0.9;
+    const wet = mix * 0.85;
 
     this.climateDryGain.gain.setValueAtTime(dry, now);
     this.climateSendGain.gain.setValueAtTime(send, now);
-    this.climateDelay.delayTime.setValueAtTime(delayTime, now);
-    this.climateFeedback.gain.setValueAtTime(feedback, now);
-    this.climateWetFilter.frequency.setValueAtTime(wetFilterCutoff, now);
+    this.climateWetHighpass.type = "highpass";
+    this.climateWetHighpass.frequency.setValueAtTime(220, now);
+    this.climateWetLowpass.type = "lowpass";
+    this.climateWetLowpass.frequency.setValueAtTime(4200 - (mix * 1000), now);
     this.climateWetGain.gain.setValueAtTime(wet, now);
   },
   
@@ -344,22 +355,22 @@ const audio = {
     const now = this.ctx.currentTime;
     const osc = this.ctx.createOscillator();
     const gainNode = this.ctx.createGain();
-    osc.type = "sine";
-    const freq = 1800 + Math.random() * 800;
+    osc.type = "triangle";
+    const freq = 2500 + Math.random() * 2200;
     osc.frequency.setValueAtTime(freq, now);
-    // Barrido de frecuencia descendente (pitch sweep) para emular la gota chiptune
-    osc.frequency.exponentialRampToValueAtTime(freq * 0.4, now + 0.03);
+    // Sweep corto y brillante, tipo gota
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.58, now + 0.022);
     
     // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta
     const stormMultiplier = state.weather === "storm" ? 2.0 : 1.0;
     const dripVol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
     gainNode.gain.setValueAtTime(dripVol, now);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.03);
+    gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.024);
     
     osc.connect(gainNode);
     this.routeClimateNode(gainNode);
     osc.start(now);
-    osc.stop(now + 0.035);
+    osc.stop(now + 0.028);
   },
 
   // Micro-golpe de nieve: grave, suave y seco

@@ -29,7 +29,8 @@ CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética
   - `100%`: opacidad completa
 - Nieve tiene un micro-sonido de impacto corto, seco y suave.
 - Abejas ajustadas a un drone más agudo y suave.
-- Clima con reverb dedicada (`REV CLIMA`) independiente del synth principal.
+- Clima con reverb dedicada (`REV CLIMA`) independiente del synth principal, implementada como reverb real por convolución (no eco simple).
+- Gotas de lluvia retocadas para un ataque más brillante y corto, más parecido a gotas.
 - Delay/echo de barridos arranca siempre en `0` (la persona lo sube si quiere).
 
 ## Controles principales
