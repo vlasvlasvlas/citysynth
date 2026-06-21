@@ -151,3 +151,6 @@ Deploy automático a GitHub Pages en cada push a `main` (workflow ya incluido).
 - JavaScript (Vanilla)
 - Web Audio API
 - JS-YAML (CDN)
+## License
+
+MIT License — © 2026 [Vladimiro Bellini](https://github.com/vlasvlasvlas). Free to use and modify, attribution required.
