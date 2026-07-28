@@ -9,7 +9,7 @@ CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética
 ## Qué incluye hoy
 
 - Skyline ASCII interactivo de 8 edificios.
-- 8 canales sonoros independientes (uno por edificio).
+- 8 canales sonoros independientes (uno por edificio) con mute binario, timbre, escala y nota raíz.
 - 4 barridos secuenciadores simultáneos (`→`, `←`, `↓`, `↑`) con BPM por barrido.
 - Climas reactivos: `clear`, `rain`, `snow`, `storm`, `bees`.
 - Modo vida urbana con 3 estados:
@@ -23,13 +23,11 @@ CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética
 
 - El audio no arranca al abrir la página: se desbloquea por gesto de usuario (click o tecla).
 - El mensaje `[SIN BARRIDOS ACTIVOS]` fue removido.
-- La visibilidad de cada edificio ahora depende del volumen de su canal:
-  - `0%`: invisible
-  - `1–99%`: opacidad proporcional
-  - `100%`: opacidad completa
+- Un único volumen maestro controla toda la salida de audio.
+- La salida final de audio se fuerza a mono antes del limiter y del destino.
 - Nieve tiene un micro-sonido de impacto corto, seco y suave.
 - Abejas ajustadas a un drone más agudo y suave.
-- Clima con reverb dedicada (`REV CLIMA`) independiente del synth principal, implementada como reverb real por convolución (no eco simple).
+- Clima con reverb dedicada (`REV CLIMA`) implementada como reverb real por convolución (no eco simple).
 - Gotas de lluvia retocadas para un ataque más brillante y corto, más parecido a gotas.
 - Delay/echo de barridos arranca siempre en `0` (la persona lo sube si quiere).
 
@@ -45,7 +43,6 @@ CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética
 
 Estos valores se fuerzan al iniciar y al cambiar de preset:
 
-- `VOL CLIMA`: `50%`
 - `INT CLIMA`: `50%`
 - `REV CLIMA`: `0%`
 - `AUTO AZAR INTERV`: `2s`
@@ -57,7 +54,7 @@ La app carga `config.yaml` por `fetch` al inicio. Estructura principal:
 
 - `initial_state`: estado inicial general de la app.
 - `buildings`: geometría y tipo de los 8 edificios.
-- `channels`: configuración musical por edificio/canal.
+- `channels`: configuración musical y mute por edificio/canal.
 - `sweeps`: estado inicial de cada barrido.
 - `thematic_presets`: presets completos seleccionables en UI.
 
@@ -66,7 +63,6 @@ La app carga `config.yaml` por `fetch` al inicio. Estructura principal:
 Ejemplo de claves:
 
 - `masterVolume`: volumen maestro (`0..1`).
-- `weatherVolume`: volumen clima (`0..1`).
 - `weatherIntensity`: intensidad clima (`0..1`).
 - `weatherReverb`: mezcla de reverb de clima (`0..1`).
 - `lifeMode`: `off | on_drone | on_silent`.
@@ -94,7 +90,7 @@ Cada edificio define:
 
 Cada canal (0..7) define:
 
-- `volume` (`0..1`)
+- `muted` (`true | false`)
 - `timbre` (`sine`, `triangle`, `square`, `sawtooth`)
 - `scale` (por ejemplo `minor`, `dorian`, `blues`, etc.)
 - `rootFreq` (Hz)

@@ -16,6 +16,13 @@ const SCALES = {
   blues: [0, 3, 5, 6, 7, 10, 12, 15]
 };
 
+const NOTE_OUTPUT_GAIN = 0.096;
+const CLIMATE_BEE_GAIN = 0.5;
+const CLIMATE_DEFAULT_GAIN = 1.0;
+const MASTER_VOLUME_RAMP = 0.08;
+const PARAM_RAMP = 0.04;
+const DRONE_VOLUME_RAMP = 0.2;
+
 // CONFIGURACIÓN DE LOS EDIFICIOS DEL SKYLINE (8 edificios en 80 columnas de ancho)
 const BUILDINGS_CONFIG = [
   { id: 0, start_x: 2,  width: 7,  bh: 12, floors: 6, cols: 3, type: "zen" },
@@ -32,7 +39,6 @@ const BUILDINGS_CONFIG = [
 const state = {
   audioEnabled: true,
   masterVolume: 0.5,
-  weatherVolume: 0.5, // Volumen específico del clima
   weatherIntensity: 0.5, // Intensidad visual/física del clima
   weatherReverb: 0.0, // Reverb dedicada al clima (arranca apagada)
   lifeMode: "on_drone", // off, on_drone, on_silent
@@ -72,14 +78,14 @@ const state = {
   
   // Configuración de los 8 canales de audio correspondientes a cada edificio
   channels: [
-    { volume: 0.8, timbre: "sine", scale: "pentatonic_major", rootFreq: 130.81, notes: [] }, // Canal 0 (zen)
-    { volume: 0.8, timbre: "triangle", scale: "phrygian", rootFreq: 65.41, notes: [] },     // Canal 1 (bass)
-    { volume: 0.8, timbre: "square", scale: "dorian", rootFreq: 130.81, notes: [] },       // Canal 2 (arp)
-    { volume: 0.8, timbre: "triangle", scale: "lydian", rootFreq: 261.63, notes: [] },       // Canal 3 (pad)
-    { volume: 0.8, timbre: "square", scale: "pentatonic_minor", rootFreq: 440.00, notes: [] }, // Canal 4 (noise)
-    { volume: 0.8, timbre: "sine", scale: "minor", rootFreq: 220.00, notes: [] },         // Canal 5 (aeolian)
-    { volume: 0.8, timbre: "triangle", scale: "whole_tone", rootFreq: 261.63, notes: [] },    // Canal 6 (whole)
-    { volume: 0.8, timbre: "square", scale: "blues", rootFreq: 523.25, notes: [] }         // Canal 7 (blues)
+    { muted: false, timbre: "sine", scale: "pentatonic_major", rootFreq: 130.81, notes: [] }, // Canal 0 (zen)
+    { muted: false, timbre: "triangle", scale: "phrygian", rootFreq: 65.41, notes: [] },     // Canal 1 (bass)
+    { muted: false, timbre: "square", scale: "dorian", rootFreq: 130.81, notes: [] },       // Canal 2 (arp)
+    { muted: false, timbre: "triangle", scale: "lydian", rootFreq: 261.63, notes: [] },       // Canal 3 (pad)
+    { muted: false, timbre: "square", scale: "pentatonic_minor", rootFreq: 440.00, notes: [] }, // Canal 4 (noise)
+    { muted: false, timbre: "sine", scale: "minor", rootFreq: 220.00, notes: [] },         // Canal 5 (aeolian)
+    { muted: false, timbre: "triangle", scale: "whole_tone", rootFreq: 261.63, notes: [] },    // Canal 6 (whole)
+    { muted: false, timbre: "square", scale: "blues", rootFreq: 523.25, notes: [] }         // Canal 7 (blues)
   ],
   activeChannelIdx: 0, // Canal que se está editando en la UI actualmente
   
@@ -96,8 +102,6 @@ const refs = {
   presetSelect: document.getElementById("presetSelect"),
   audioToggle: document.getElementById("audioToggle"),
   weatherSelect: document.getElementById("weatherSelect"),
-  weatherVolume: document.getElementById("weatherVolume"),
-  weatherVolumeVal: document.getElementById("weatherVolumeVal"),
   weatherIntensity: document.getElementById("weatherIntensity"),
   weatherIntensityVal: document.getElementById("weatherIntensityVal"),
   weatherReverb: document.getElementById("weatherReverb"),
@@ -116,8 +120,7 @@ const refs = {
 
   // Elementos de edición de canal
   channelSelect: document.getElementById("channelSelect"),
-  channelVolume: document.getElementById("channelVolume"),
-  channelVolumeVal: document.getElementById("channelVolumeVal"),
+  channelMute: document.getElementById("channelMute"),
   channelTimbre: document.getElementById("channelTimbre"),
   channelScale: document.getElementById("channelScale"),
   channelRoot: document.getElementById("channelRoot"),
@@ -166,9 +169,7 @@ function getClimateDensityMultiplier() {
 }
 
 function getClimateVolumeMultiplier(weatherType = state.weather) {
-  const base = clamp(state.weatherVolume, 0, 1);
-  if (weatherType === "bees") return base;
-  return base * 2;
+  return weatherType === "bees" ? CLIMATE_BEE_GAIN : CLIMATE_DEFAULT_GAIN;
 }
 
 function setupPerformanceMode() {
@@ -180,6 +181,9 @@ function setupPerformanceMode() {
 // Motor de audio de 8 bits seco (Chiptune puro) con soporte LFO, Delays y Climas
 const audio = {
   ctx: null,
+  masterGain: null,
+  monoOutput: null,
+  limiter: null,
   sweeps: {
     L_TO_R: { delay: null, feedback: null, wetGain: null },
     R_TO_L: { delay: null, feedback: null, wetGain: null },
@@ -205,6 +209,26 @@ const audio = {
   init() {
     if (this.ctx) return;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.value = 0;
+
+    this.monoOutput = this.ctx.createGain();
+    this.monoOutput.channelCount = 1;
+    this.monoOutput.channelCountMode = "explicit";
+    this.monoOutput.channelInterpretation = "speakers";
+
+    this.limiter = this.ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -9;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 16;
+    this.limiter.attack.value = 0.004;
+    this.limiter.release.value = 0.12;
+
+    this.masterGain.connect(this.monoOutput);
+    this.monoOutput.connect(this.limiter);
+    this.limiter.connect(this.ctx.destination);
+    this.updateMasterVolume({ immediate: true });
     
     // Inicializar nodos de delay para cada barrido
     ["L_TO_R", "R_TO_L", "T_TO_B", "B_TO_T"].forEach(sweepId => {
@@ -214,12 +238,12 @@ const audio = {
       
       delay.delayTime.value = state.sweeps[sweepId].delayTime / 1000;
       feedback.gain.value = state.sweeps[sweepId].delayFeedback / 100;
-      wetGain.gain.value = 0.4; // volumen de la señal procesada
+      wetGain.gain.value = 0.4; // Nivel interno de la señal procesada
       
       feedback.connect(delay);
       delay.connect(feedback);
       delay.connect(wetGain);
-      wetGain.connect(this.ctx.destination);
+      this.connectOutput(wetGain);
       
       this.sweeps[sweepId] = { delay, feedback, wetGain };
     });
@@ -235,16 +259,48 @@ const audio = {
     this.climateConvolver.buffer = this.createClimateImpulse(2.2, 2.4);
 
     this.climateInput.connect(this.climateDryGain);
-    this.climateDryGain.connect(this.ctx.destination);
+    this.connectOutput(this.climateDryGain);
 
     this.climateInput.connect(this.climateSendGain);
     this.climateSendGain.connect(this.climateConvolver);
     this.climateConvolver.connect(this.climateWetHighpass);
     this.climateWetHighpass.connect(this.climateWetLowpass);
     this.climateWetLowpass.connect(this.climateWetGain);
-    this.climateWetGain.connect(this.ctx.destination);
+    this.connectOutput(this.climateWetGain);
 
     this.updateClimateReverb();
+  },
+
+  smoothParam(param, value, now = this.ctx.currentTime, timeConstant = PARAM_RAMP) {
+    if (!param) return;
+    if (typeof param.cancelAndHoldAtTime === "function") {
+      param.cancelAndHoldAtTime(now);
+    } else {
+      const heldValue = param.value;
+      param.cancelScheduledValues(now);
+      param.setValueAtTime(heldValue, now);
+    }
+    param.setTargetAtTime(value, now, timeConstant);
+  },
+
+  connectOutput(node) {
+    if (this.masterGain) {
+      node.connect(this.masterGain);
+    } else if (this.ctx) {
+      node.connect(this.ctx.destination);
+    }
+  },
+
+  updateMasterVolume({ immediate = false } = {}) {
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const target = state.audioEnabled ? clamp(state.masterVolume, 0, 1) : 0;
+    if (immediate) {
+      this.masterGain.gain.cancelScheduledValues(now);
+      this.masterGain.gain.setValueAtTime(target, now);
+    } else {
+      this.smoothParam(this.masterGain.gain, target, now, MASTER_VOLUME_RAMP);
+    }
   },
 
   createClimateImpulse(seconds = 2.0, decay = 2.2) {
@@ -265,7 +321,7 @@ const audio = {
     if (this.climateInput) {
       node.connect(this.climateInput);
     } else {
-      node.connect(this.ctx.destination);
+      this.connectOutput(node);
     }
   },
 
@@ -277,16 +333,16 @@ const audio = {
     const send = mix * 0.9;
     const wet = mix * 0.85;
 
-    this.climateDryGain.gain.setValueAtTime(dry, now);
-    this.climateSendGain.gain.setValueAtTime(send, now);
+    this.smoothParam(this.climateDryGain.gain, dry, now);
+    this.smoothParam(this.climateSendGain.gain, send, now);
     this.climateWetHighpass.type = "highpass";
-    this.climateWetHighpass.frequency.setValueAtTime(220, now);
+    this.smoothParam(this.climateWetHighpass.frequency, 220, now);
     this.climateWetLowpass.type = "lowpass";
-    this.climateWetLowpass.frequency.setValueAtTime(4200 - (mix * 1000), now);
-    this.climateWetGain.gain.setValueAtTime(wet, now);
+    this.smoothParam(this.climateWetLowpass.frequency, 4200 - (mix * 1000), now);
+    this.smoothParam(this.climateWetGain.gain, wet, now);
   },
   
-  playTone(freq, timbre = "square", chVol = 0.8, duration = 0.12, isBeeNear = false, sweepId = null) {
+  playTone(freq, timbre = "square", duration = 0.12, isBeeNear = false, sweepId = null) {
     if (!state.audioEnabled || !state.audioUnlocked) return;
     this.init();
     
@@ -321,23 +377,22 @@ const audio = {
       finalDuration = duration * 0.5;
     }
     
-    // Cálculo final de ganancia (volumen canal * volumen maestro)
-    const finalVol = state.masterVolume * chVol * 0.12;
-    gainNode.gain.setValueAtTime(finalVol, now);
+    const finalVol = NOTE_OUTPUT_GAIN;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(finalVol, now + 0.006);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + finalDuration);
     
     osc.connect(gainNode);
     
-    // Conexión dry directa a la salida
-    gainNode.connect(this.ctx.destination);
+    this.connectOutput(gainNode);
     
     // Conexión wet si el barrido tiene Delay y Feedback
     if (sweepId && this.sweeps[sweepId]) {
       const s = state.sweeps[sweepId];
       if (s.delayTime > 0) {
         const sweepDelay = this.sweeps[sweepId];
-        sweepDelay.delay.delayTime.setValueAtTime(s.delayTime / 1000, now);
-        sweepDelay.feedback.gain.setValueAtTime(s.delayFeedback / 100, now);
+        this.smoothParam(sweepDelay.delay.delayTime, s.delayTime / 1000, now);
+        this.smoothParam(sweepDelay.feedback.gain, s.delayFeedback / 100, now);
         
         // Conectar solo la entrada al delay; salida wet preconectada en init()
         gainNode.connect(sweepDelay.delay);
@@ -361,10 +416,11 @@ const audio = {
     // Sweep corto y brillante, tipo gota
     osc.frequency.exponentialRampToValueAtTime(freq * 0.58, now + 0.022);
     
-    // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta
+    // Gotas más fuertes: base alta en lluvia y al menos el doble en tormenta.
     const stormMultiplier = state.weather === "storm" ? 2.0 : 1.0;
-    const dripVol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
-    gainNode.gain.setValueAtTime(dripVol, now);
+    const dripVol = getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.28 * stormMultiplier;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(dripVol, now + 0.004);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.024);
     
     osc.connect(gainNode);
@@ -385,8 +441,9 @@ const audio = {
     osc.frequency.setValueAtTime(freq, now);
     osc.frequency.exponentialRampToValueAtTime(freq * 0.75, now + 0.05);
 
-    const tickVol = state.masterVolume * getClimateVolumeMultiplier() * (0.12 + 0.55 * getClimateDensityMultiplier()) * 0.07;
-    gainNode.gain.setValueAtTime(tickVol, now);
+    const tickVol = getClimateVolumeMultiplier() * (0.12 + 0.55 * getClimateDensityMultiplier()) * 0.07;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(tickVol, now + 0.006);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
 
     osc.connect(gainNode);
@@ -407,9 +464,9 @@ const audio = {
     osc.frequency.setValueAtTime(75, now);
     osc.frequency.exponentialRampToValueAtTime(20, now + 0.85);
     
-    // Incorpora el volumen del clima
-    const thunderVol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.6;
-    gainNode.gain.setValueAtTime(thunderVol * 0.16, now);
+    const thunderVol = getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.6;
+    gainNode.gain.setValueAtTime(0.0001, now);
+    gainNode.gain.linearRampToValueAtTime(thunderVol * 0.16, now + 0.012);
     gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
     
     osc.connect(gainNode);
@@ -436,9 +493,9 @@ const audio = {
     lfo.connect(lfoGain);
     lfoGain.connect(osc.frequency);
     
-    // Ajuste de volumen con volumen del clima
-    const vol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
-    gainNode.gain.setValueAtTime(vol, now);
+    const vol = getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
+    gainNode.gain.setValueAtTime(0, now);
+    this.smoothParam(gainNode.gain, vol, now, DRONE_VOLUME_RAMP);
     
     osc.connect(gainNode);
     this.routeClimateNode(gainNode);
@@ -453,9 +510,14 @@ const audio = {
 
   stopBeeDrone() {
     if (this.beeDrone) {
+      const now = this.ctx ? this.ctx.currentTime : 0;
+      const drone = this.beeDrone;
+      const lfo = this.beeLFO;
+      const gainNode = this.beeDroneGain;
       try {
-        this.beeDrone.stop();
-        this.beeLFO.stop();
+        if (gainNode) this.smoothParam(gainNode.gain, 0, now, 0.05);
+        drone.stop(now + 0.25);
+        if (lfo) lfo.stop(now + 0.25);
       } catch(e) {}
       this.beeDrone = null;
       this.beeDroneGain = null;
@@ -466,8 +528,8 @@ const audio = {
   updateBeeDroneVolume() {
     if (this.beeDroneGain) {
       const now = this.ctx.currentTime;
-      const vol = state.masterVolume * getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
-      this.beeDroneGain.gain.setValueAtTime(vol, now);
+      const vol = getClimateVolumeMultiplier() * (0.15 + 0.85 * getClimateDensityMultiplier()) * 0.022;
+      this.smoothParam(this.beeDroneGain.gain, vol, now, DRONE_VOLUME_RAMP);
     }
   },
 
@@ -491,7 +553,7 @@ const audio = {
     
     osc.connect(filter);
     filter.connect(gainNode);
-    gainNode.connect(this.ctx.destination);
+    this.connectOutput(gainNode);
     
     osc.start(now);
     
@@ -502,8 +564,12 @@ const audio = {
 
   stopCarDrone() {
     if (this.carDrone) {
+      const now = this.ctx ? this.ctx.currentTime : 0;
+      const drone = this.carDrone;
+      const gainNode = this.carDroneGain;
       try {
-        this.carDrone.stop();
+        if (gainNode) this.smoothParam(gainNode.gain, 0, now, 0.05);
+        drone.stop(now + 0.25);
       } catch(e) {}
       this.carDrone = null;
       this.carDroneGain = null;
@@ -517,10 +583,10 @@ const audio = {
     
     let targetVol = 0;
     if (state.audioEnabled && isLifeDroneEnabled() && state.vehicles && state.vehicles.length > 0) {
-      // 0.05 de volumen base por auto (escalable hasta 3 autos máx)
-      targetVol = state.masterVolume * 0.05 * Math.min(state.vehicles.length, 3);
+      // Nivel base por auto (escalable hasta 3 autos máx)
+      targetVol = 0.05 * Math.min(state.vehicles.length, 3);
     }
-    this.carDroneGain.gain.setTargetAtTime(targetVol, now, 0.2); // Transición suave
+    this.smoothParam(this.carDroneGain.gain, targetVol, now, DRONE_VOLUME_RAMP);
   },
 
   updateCarDroneFrequency() {
@@ -815,7 +881,9 @@ function toggleWindow(bIdx, floor, col) {
     const freqIdx = floors - 1 - floor;
     const freq = ch.notes[freqIdx % ch.notes.length] || 220;
     const hasBee = checkBeeNear(win.x, win.y);
-    audio.playTone(freq, ch.timbre, ch.volume, 0.15, hasBee, null);
+    if (!ch.muted) {
+      audio.playTone(freq, ch.timbre, 0.15, hasBee, null);
+    }
   }
 }
 
@@ -844,7 +912,9 @@ function processSweepAction(bIdx, floor, col, sweepId) {
     const freqIdx = floors - 1 - floor;
     const freq = ch.notes[freqIdx % ch.notes.length];
     const hasBee = checkBeeNear(win.x, win.y);
-    audio.playTone(freq, ch.timbre, ch.volume, 0.12, hasBee, sweepId);
+    if (!ch.muted) {
+      audio.playTone(freq, ch.timbre, 0.12, hasBee, sweepId);
+    }
   }
 }
 
@@ -932,11 +1002,7 @@ function drawCanvas() {
   const colors = Array(height).fill(null).map(() => Array(width).fill("ansi-grey"));
   const owner = Array(height).fill(null).map(() => Array(width).fill(null));
 
-  const getBuildingOpacity = (buildingId) => {
-    const channel = state.channels[buildingId];
-    if (!channel || typeof channel.volume !== "number") return 1;
-    return clamp(channel.volume, 0, 1);
-  };
+  const getBuildingOpacity = () => 1;
   
   // 2. Dibujar estrellas parpadeantes en el cielo (solo si no hay tormenta densa)
   if (state.weather !== "storm" || Math.random() < 0.6 * getClimateDensityMultiplier()) {
@@ -1238,8 +1304,7 @@ function drawCanvas() {
 // Carga los valores del canal activo a los inputs de la UI
 function syncActiveChannelToUI() {
   const ch = state.channels[state.activeChannelIdx];
-  refs.channelVolume.value = Math.round(ch.volume * 100);
-  refs.channelVolumeVal.textContent = `${Math.round(ch.volume * 100)}%`;
+  refs.channelMute.checked = Boolean(ch.muted);
   refs.channelTimbre.value = ch.timbre;
   refs.channelScale.value = ch.scale;
   refs.channelRoot.value = String(ch.rootFreq);
@@ -1279,7 +1344,6 @@ function normalizePreset(rawPreset, fallbackId) {
     label: preset.label || id,
     theme: preset.theme || "dos-blue",
     weather: preset.weather || "clear",
-    weatherVolume: preset.weatherVolume,
     weatherIntensity: preset.weatherIntensity,
     weatherReverb: preset.weatherReverb,
     lifeMode: preset.lifeMode,
@@ -1310,7 +1374,6 @@ function applyPresetById(presetId, syncUI = true) {
 
   if (preset.lifeMode) state.lifeMode = preset.lifeMode;
   if (preset.weather) state.weather = preset.weather;
-  state.weatherVolume = 0.5;
   state.weatherIntensity = 0.5;
   state.weatherReverb = 0;
   if (typeof preset.autoRandomActive === "boolean") state.autoRandomActive = preset.autoRandomActive;
@@ -1324,7 +1387,7 @@ function applyPresetById(presetId, syncUI = true) {
   if (preset.channels) {
     preset.channels.forEach((ch, idx) => {
       if (!state.channels[idx]) return;
-      if (typeof ch.volume === "number") state.channels[idx].volume = ch.volume;
+      if (typeof ch.muted === "boolean") state.channels[idx].muted = ch.muted;
       if (typeof ch.timbre === "string") state.channels[idx].timbre = ch.timbre;
       if (typeof ch.scale === "string") state.channels[idx].scale = ch.scale;
       if (typeof ch.rootFreq === "number") state.channels[idx].rootFreq = ch.rootFreq;
@@ -1389,15 +1452,16 @@ function bindConsoleUI() {
   refs.volumeSlider.addEventListener("input", (e) => {
     state.masterVolume = Number(e.target.value) / 100;
     refs.volumeVal.textContent = `${e.target.value}%`;
-    audio.updateBeeDroneVolume();
-    audio.updateCarDroneVolume(); // Actualizar volumen del rumor de tráfico
+    audio.updateMasterVolume();
   });
 
   // Audio General Toggle
   refs.audioToggle.addEventListener("change", (e) => {
     state.audioEnabled = e.target.checked;
+    audio.updateMasterVolume();
     if (state.audioEnabled && state.audioUnlocked) {
       audio.init();
+      audio.updateMasterVolume();
       if (state.weather === "bees") {
         audio.startBeeDrone();
       }
@@ -1418,11 +1482,10 @@ function bindConsoleUI() {
     syncActiveChannelToUI();
   });
 
-  // Volumen del canal
-  refs.channelVolume.addEventListener("input", (e) => {
+  // Mute binario del canal, sin volumen individual.
+  refs.channelMute.addEventListener("change", (e) => {
     const ch = state.channels[state.activeChannelIdx];
-    ch.volume = Number(e.target.value) / 100;
-    refs.channelVolumeVal.textContent = `${e.target.value}%`;
+    ch.muted = e.target.checked;
   });
 
   // Timbre de onda del canal
@@ -1551,18 +1614,12 @@ function bindConsoleUI() {
     rebuildWeatherParticles();
   });
 
-  // Slider de volumen del clima
-  refs.weatherVolume.addEventListener("input", (e) => {
-    state.weatherVolume = Number(e.target.value) / 100;
-    refs.weatherVolumeVal.textContent = `${e.target.value}%`;
-    audio.updateBeeDroneVolume();
-  });
-
   // Slider de intensidad del clima (impacta densidad y velocidad visual)
   refs.weatherIntensity.addEventListener("input", (e) => {
     state.weatherIntensity = Number(e.target.value) / 100;
     refs.weatherIntensityVal.textContent = `${e.target.value}%`;
     rebuildWeatherParticles();
+    audio.updateBeeDroneVolume();
   });
 
   refs.weatherReverb.addEventListener("input", (e) => {
@@ -1609,7 +1666,7 @@ function bindConsoleUI() {
       // Actualizar el nodo de Audio de inmediato si ya está inicializado
       if (audio.ctx && audio.sweeps[sweepId]) {
         const now = audio.ctx.currentTime;
-        audio.sweeps[sweepId].delay.delayTime.setValueAtTime(Number(e.target.value) / 1000, now);
+        audio.smoothParam(audio.sweeps[sweepId].delay.delayTime, Number(e.target.value) / 1000, now);
       }
     });
 
@@ -1622,7 +1679,7 @@ function bindConsoleUI() {
       // Actualizar el nodo de Audio de inmediato si ya está inicializado
       if (audio.ctx && audio.sweeps[sweepId]) {
         const now = audio.ctx.currentTime;
-        audio.sweeps[sweepId].feedback.gain.setValueAtTime(Number(e.target.value) / 100, now);
+        audio.smoothParam(audio.sweeps[sweepId].feedback.gain, Number(e.target.value) / 100, now);
       }
     });
   });
@@ -1729,7 +1786,6 @@ async function loadConfig() {
       // 1. Cargar Estado Inicial
       if (config.initial_state) {
         state.masterVolume = config.initial_state.masterVolume !== undefined ? config.initial_state.masterVolume : state.masterVolume;
-        state.weatherVolume = 0.5;
         state.weatherIntensity = 0.5;
         state.weatherReverb = 0;
         if (config.initial_state.lifeMode !== undefined) {
@@ -1754,7 +1810,7 @@ async function loadConfig() {
       if (config.channels && Array.isArray(config.channels)) {
         config.channels.forEach((ch, idx) => {
           if (state.channels[idx]) {
-            state.channels[idx].volume = ch.volume !== undefined ? ch.volume : state.channels[idx].volume;
+            if (typeof ch.muted === "boolean") state.channels[idx].muted = ch.muted;
             state.channels[idx].timbre = ch.timbre !== undefined ? ch.timbre : state.channels[idx].timbre;
             state.channels[idx].scale = ch.scale !== undefined ? ch.scale : state.channels[idx].scale;
             state.channels[idx].rootFreq = ch.rootFreq !== undefined ? ch.rootFreq : state.channels[idx].rootFreq;
@@ -1783,7 +1839,6 @@ async function loadConfig() {
         label: "Ciudad Base",
         theme: state.currentTheme,
         weather: state.weather,
-        weatherVolume: state.weatherVolume,
         weatherIntensity: state.weatherIntensity,
         weatherReverb: state.weatherReverb,
         lifeMode: state.lifeMode,
@@ -1791,7 +1846,7 @@ async function loadConfig() {
         autoRandomInterval: state.autoRandomInterval,
         buildings: BUILDINGS_CONFIG,
         channels: state.channels.map(ch => ({
-          volume: ch.volume,
+          muted: ch.muted,
           timbre: ch.timbre,
           scale: ch.scale,
           rootFreq: ch.rootFreq
@@ -1819,10 +1874,6 @@ function syncDOMToState() {
   }
   if (refs.presetSelect) {
     refs.presetSelect.value = state.currentPreset;
-  }
-  if (refs.weatherVolume) {
-    refs.weatherVolume.value = Math.round(state.weatherVolume * 100);
-    refs.weatherVolumeVal.textContent = `${Math.round(state.weatherVolume * 100)}%`;
   }
   if (refs.weatherIntensity) {
     refs.weatherIntensity.value = Math.round(state.weatherIntensity * 100);

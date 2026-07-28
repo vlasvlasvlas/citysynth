@@ -1,6 +1,5 @@
 initial_state:
   masterVolume: 0.5
-  weatherVolume: 0.5
   weatherIntensity: 0.5
   weatherReverb: 0.0
   lifeMode: "on_silent"
@@ -69,35 +68,35 @@ buildings:
     type: "blues"
 
 channels:
-  - volume: 0.8
+  - muted: false
     timbre: "sine"
     scale: "pentatonic_major"
     rootFreq: 130.81
-  - volume: 0.8
+  - muted: false
     timbre: "triangle"
     scale: "phrygian"
     rootFreq: 65.41
-  - volume: 0.8
+  - muted: false
     timbre: "square"
     scale: "dorian"
     rootFreq: 130.81
-  - volume: 0.8
+  - muted: false
     timbre: "triangle"
     scale: "lydian"
     rootFreq: 261.63
-  - volume: 0.8
+  - muted: false
     timbre: "square"
     scale: "pentatonic_minor"
     rootFreq: 440.00
-  - volume: 0.8
+  - muted: false
     timbre: "sine"
     scale: "minor"
     rootFreq: 220.00
-  - volume: 0.8
+  - muted: false
     timbre: "triangle"
     scale: "whole_tone"
     rootFreq: 261.63
-  - volume: 0.8
+  - muted: false
     timbre: "square"
     scale: "blues"
     rootFreq: 523.25
@@ -133,7 +132,6 @@ thematic_presets:
     label: "Blade Runner Night"
     theme: "dark-city"
     weather: "rain"
-    weatherVolume: 0.5
     weatherIntensity: 0.5
     weatherReverb: 0.0
     lifeMode: "on_silent"
@@ -197,35 +195,35 @@ thematic_presets:
         cols: 3
         type: "blues"
     channels:
-      - volume: 0.86
+      - muted: false
         timbre: "triangle"
         scale: "minor"
         rootFreq: 130.81
-      - volume: 0.9
+      - muted: false
         timbre: "sawtooth"
         scale: "minor"
         rootFreq: 65.41
-      - volume: 0.78
+      - muted: false
         timbre: "square"
         scale: "dorian"
         rootFreq: 146.83
-      - volume: 0.92
+      - muted: false
         timbre: "sawtooth"
         scale: "lydian"
         rootFreq: 261.63
-      - volume: 0.66
+      - muted: false
         timbre: "square"
         scale: "phrygian"
         rootFreq: 329.63
-      - volume: 0.74
+      - muted: false
         timbre: "triangle"
         scale: "minor"
         rootFreq: 220.00
-      - volume: 0.8
+      - muted: false
         timbre: "sine"
         scale: "whole_tone"
         rootFreq: 261.63
-      - volume: 0.84
+      - muted: false
         timbre: "square"
         scale: "blues"
         rootFreq: 392.00
@@ -259,17 +257,16 @@ thematic_presets:
     label: "Clear Minimal"
     theme: "dos-blue"
     weather: "clear"
-    weatherVolume: 0.4
     weatherIntensity: 0.4
     lifeMode: "on_silent"
     autoRandomActive: false
     autoRandomInterval: 6
     channels:
-      - volume: 0.72
+      - muted: false
         timbre: "sine"
         scale: "pentatonic_major"
         rootFreq: 130.81
-      - volume: 0.68
+      - muted: false
         timbre: "triangle"
         scale: "dorian"
         rootFreq: 73.42

@@ -53,7 +53,7 @@
           <p><strong>- INICIO RÁPIDO:</strong> Elige un PRESET TEMÁTICO, activa un barrido (→, ←, ↓, ↑) y sube algunas ventanas con clic.</p>
           <p><strong>- INTERACCIÓN:</strong> Haz clic en cualquier ventana para prender/apagar la nota (siempre activo).</p>
           <p><strong>- SECUENCIADOR:</strong> Abre [ CONFIG ] y activa los barridos (→, ←, ↓, ↑). Cada uno tiene su propio BPM. Al cruzarse con ventanas encendidas, se reproducirán.</p>
-          <p><strong>- CANALES:</strong> Configura individualmente el volumen, timbre, escala armónica y nota raíz de cada uno de los 8 edificios.</p>
+          <p><strong>- CANALES:</strong> Configura individualmente mute, timbre, escala armónica y nota raíz de cada uno de los 8 edificios.</p>
           <p><strong>- PRESETS TEMÁTICOS:</strong> Cambian en bloque tema visual, clima, intensidad, barridos y parámetros musicales.</p>
           <p><strong>- CLIMAS:</strong> La lluvia genera gotas y micro-clicks; la nieve congela y reduce la velocidad/duración; la tormenta provoca destellos, truenos y ráfagas de viento; las abejas revolotean modulando el tono con vibrato LFO. Ajusta también INTENSIDAD CLIMA.</p>
         </div>
@@ -106,9 +106,11 @@
                 </select>
               </div>
               <div class="param-row">
-                <span>VOLUMEN:</span>
-                <input id="channelVolume" type="range" min="0" max="100" value="80" />
-                <span id="channelVolumeVal">80%</span>
+                <label class="terminal-checkbox">
+                  <input type="checkbox" id="channelMute" />
+                  <span class="checkbox-box"></span>
+                  <span class="checkbox-label">MUTE EDIFICIO</span>
+                </label>
               </div>
               <div class="param-row">
                 <span>TIMBRE:</span>
@@ -285,11 +287,6 @@
                 <option value="storm">Tormenta (Storm)</option>
                 <option value="bees">Abejas (Bees Swarm)</option>
               </select>
-            </div>
-            <div class="param-row" style="margin-top: 8px;">
-              <span>VOL CLIMA:</span>
-              <input id="weatherVolume" type="range" min="0" max="100" value="50" />
-              <span id="weatherVolumeVal">50%</span>
             </div>
             <div class="param-row" style="margin-top: 8px;">
               <span>INT CLIMA:</span>
