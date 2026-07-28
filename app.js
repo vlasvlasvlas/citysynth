@@ -1002,7 +1002,10 @@ function drawCanvas() {
   const colors = Array(height).fill(null).map(() => Array(width).fill("ansi-grey"));
   const owner = Array(height).fill(null).map(() => Array(width).fill(null));
 
-  const getBuildingOpacity = () => 1;
+  const getBuildingOpacity = (buildingId) => {
+    const channel = state.channels[buildingId];
+    return channel && channel.muted ? 0 : 1;
+  };
   
   // 2. Dibujar estrellas parpadeantes en el cielo (solo si no hay tormenta densa)
   if (state.weather !== "storm" || Math.random() < 0.6 * getClimateDensityMultiplier()) {
@@ -1149,6 +1152,7 @@ function drawCanvas() {
           if (rx >= 0 && rx < width && Math.random() < 0.65) {
             buf[gy][rx] = "~";
             colors[gy][rx] = color;
+            owner[gy][rx] = b.config.id;
           }
         }
       }

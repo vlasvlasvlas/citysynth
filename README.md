@@ -36,6 +36,7 @@ CitySynth es un secuenciador audiovisual generativo en arte ASCII, con estética
 - Click en ventanas: enciende/apaga nota.
 - `[ CONFIG ]`: abre sidebar de controles.
 - `[ ? ]`: ayuda rápida.
+- `MUTE EDIFICIO`: silencia y oculta el edificio seleccionado.
 - `VIDA`: alterna `OFF` / `ON + DRONE` / `ON - DRONE`.
 - `NOTA DRONE` (visible en `ON + DRONE`): cambia frecuencia base del drone de vida en tiempo real.
 
